@@ -5,7 +5,7 @@
 
 export const site = {
   name: "Race Against Heart Disease",
-  tagline: "70.3 miles. One argument: hearts are built to be pushed.",
+  tagline: "70.3 miles for the next generation of hearts.",
   url: "https://raceagainstheartdisease.com",
   author: {
     name: "Filippo Fonseca",
@@ -54,31 +54,31 @@ export type Stat = {
 export const stats: Stat[] = [
   {
     value: "34 sec",
-    label: "Roughly how often someone in the US dies of cardiovascular disease. It has been the leading cause of death for a century.",
+    label: "Roughly how often someone in the US dies of cardiovascular disease. Much of it is preventable, and prevention starts early.",
     source: "https://www.cdc.gov/heart-disease/data-research/facts-stats/index.html",
     sourceLabel: "CDC",
   },
   {
     value: "19.8M",
-    label: "people die of cardiovascular disease every year worldwide. About one in three deaths on Earth.",
+    label: "people die of cardiovascular disease every year worldwide. Coronary heart disease is the largest share.",
     source: "https://www.who.int/news-room/fact-sheets/detail/cardiovascular-diseases-(cvds)",
     sourceLabel: "WHO",
   },
   {
     value: "1 in 4",
-    label: "American kids get the recommended hour of daily movement. The other three are learning to sit.",
+    label: "American children get the recommended hour of daily movement. It is a habit that is easiest to build young, and tends to last.",
     source: "https://archive.cdc.gov/www_cdc_gov/healthyschools/physicalactivity/facts.htm",
     sourceLabel: "CDC",
   },
   {
     value: "81%",
-    label: "of adolescents worldwide are not active enough. A sedentary childhood is the quietest risk factor we have.",
+    label: "of adolescents worldwide are not active enough. The patterns set in these years follow a heart for the rest of its life.",
     source: "https://www.who.int/news-room/fact-sheets/detail/physical-activity",
     sourceLabel: "WHO",
   },
   {
-    value: "150 min",
-    label: "of brisk movement a week is the dose. Hitting it is tied to roughly a quarter lower risk of dying from heart disease.",
+    value: "60 min",
+    label: "a day of active play for children, and 150 minutes a week for adults. Meeting the guideline is tied to roughly a quarter lower risk of dying from heart disease.",
     source: "https://www.heart.org/en/news/2022/07/25/getting-more-exercise-than-guidelines-suggest-may-further-lower-death-risk",
     sourceLabel: "AHA",
   },

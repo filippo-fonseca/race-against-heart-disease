@@ -44,48 +44,47 @@ export function Envelope() {
       <div
         className={`envelope relative w-full max-w-[640px] ${stage === "opening" ? "is-opening" : ""}`}
       >
-        {/* letter sheet, tucked in the pocket */}
-        <div
-          aria-hidden="true"
-          className="letter-sheet absolute left-[10%] top-[10%] z-10 h-[84%] w-[80%] border border-rule bg-paper shadow-[0_10px_30px_-20px_rgba(0,0,0,0.3)]"
-        >
-          <div className="m-[10%] space-y-3">
-            <div className="h-2 w-2/3 bg-rule" />
-            <div className="h-2 w-full bg-rule" />
-            <div className="h-2 w-11/12 bg-rule" />
-            <div className="h-2 w-4/5 bg-rule" />
-          </div>
-        </div>
-
-        {/* envelope body: back + front pocket */}
-        <div className="envelope-body relative aspect-[8/5] w-full">
+        {/* envelope body: back + tucked letter + front pocket */}
+        <div className="envelope-body relative aspect-[5/6] w-full sm:aspect-[8/5]">
           <div className="absolute inset-0 z-0 border border-rule bg-paper" />
 
+          <div
+            aria-hidden="true"
+            className="letter-sheet absolute left-[22%] top-[25%] z-10 h-[62%] w-[56%] border border-rule bg-paper shadow-[0_10px_30px_-20px_rgba(0,0,0,0.3)]"
+          >
+            <div className="m-[9%] space-y-2.5">
+              <div className="h-1.5 w-2/3 bg-rule" />
+              <div className="h-1.5 w-full bg-rule" />
+              <div className="h-1.5 w-11/12 bg-rule" />
+              <div className="h-1.5 w-4/5 bg-rule" />
+            </div>
+          </div>
+
           <div className="absolute inset-x-0 bottom-0 z-20 h-[55%] border border-rule bg-paper shadow-[0_-1px_0_rgba(0,0,0,0.03)]">
-            {/* address block */}
-            <div className="absolute bottom-[12%] left-[7%] max-w-[55%]">
-              <div className="label mb-1">To</div>
-              <div className="font-hand text-[1.5rem] leading-[1.1] text-ink sm:text-[2rem]">
-                Whoever is sitting
-                <br />
-                down right now
-              </div>
-              <div className="label mt-2 !text-ink-soft">
-                Open immediately · Contains one argument
-              </div>
-            </div>
-
-            {/* stamp + postmark */}
-            <div className="absolute right-[6%] top-[-28%] flex items-start">
-              <Postmark className="relative z-10 -mr-[46px] mt-3 w-[180px] text-ink/70 sm:-mr-[52px] sm:w-[210px]" />
-              <Stamp className="rotate-[2deg]" />
-            </div>
-
             {/* return address */}
-            <div className="label absolute bottom-[12%] right-[7%] text-right !text-ink-soft">
+            <div className="label absolute bottom-[10%] right-[6%] text-right !text-ink-soft leading-[1.7] sm:bottom-[12%] sm:right-[5%]">
               From {site.author.name}
               <br />
-              {site.race.city}, {site.race.stateAbbr} · {site.race.postmarkDate}
+              {site.race.city}, {site.race.stateAbbr}
+            </div>
+
+            {/* address block */}
+            <div className="absolute bottom-[30%] left-[6%] max-w-[88%] sm:bottom-[12%] sm:max-w-[62%]">
+              <div className="label mb-1">To</div>
+              <div className="font-hand text-[1.7rem] leading-[1.1] text-ink sm:text-[2rem]">
+                Every young heart,
+                <br />
+                and everyone who looks after one
+              </div>
+              <div className="label mt-2 hidden !text-ink-soft sm:block">
+                Please open · One good reason to move enclosed
+              </div>
+            </div>
+
+            {/* stamp + postmark (postmark only where there is room) */}
+            <div className="absolute right-[6%] top-[-30%] flex items-start sm:right-[5%] sm:top-[-34%]">
+              <Postmark className="relative z-10 -mr-[66px] mt-2 hidden w-[176px] text-ink/65 sm:block" />
+              <Stamp className="rotate-[2deg]" />
             </div>
           </div>
 

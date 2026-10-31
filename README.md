@@ -1,10 +1,10 @@
 # Race Against Heart Disease
 
-A sealed letter, addressed to whoever is sitting down right now.
+A sealed letter to every young heart, and everyone who looks after one.
 
 On **April 4, 2027**, [Filippo Fonseca](https://filippofonseca.com) races **IRONMAN 70.3 Texas** in Galveston (1.2 mi swim, 56 mi bike, 13.1 mi run) with **Team IMF**, the charity team of [The IRONMAN Foundation](https://www.ironmanfoundation.org/). Every dollar donated through the campaign link goes to the Foundation.
 
-The race is the proof. The point is the argument: heart disease is the leading cause of death on Earth, most of it is preventable, and the cheapest medicine we have is movement. We are raising a generation of kids who sit. This site exists to say that out loud, once, in the form of a letter.
+The race is the demonstration. The message is about prevention: coronary heart disease is the leading cause of death in the world, and the habits that protect against it (daily movement most of all) are formed in childhood and tend to last a lifetime. This site makes that case once, warmly, in the form of a letter, and points people to a foundation that puts the chance to move in front of young people.
 
 ## The site
 
@@ -41,7 +41,7 @@ Figures quoted on the page, with the primary source for each:
 | 19.8M | Annual cardiovascular deaths worldwide, about 32% of all deaths | [WHO](https://www.who.int/news-room/fact-sheets/detail/cardiovascular-diseases-(cvds)) |
 | 1 in 4 | US children aged 6 to 17 who meet the 60 min/day activity guideline (24%) | [CDC](https://archive.cdc.gov/www_cdc_gov/healthyschools/physicalactivity/facts.htm) |
 | 81% | Adolescents worldwide who are insufficiently active | [WHO](https://www.who.int/news-room/fact-sheets/detail/physical-activity) |
-| 150 min | Weekly moderate activity guideline; meeting it is associated with roughly 22 to 25% lower cardiovascular mortality | [AHA](https://www.heart.org/en/news/2022/07/25/getting-more-exercise-than-guidelines-suggest-may-further-lower-death-risk) |
+| 60 min / 150 min | Daily activity guideline for children and weekly guideline for adults; meeting it is associated with roughly 22 to 25% lower cardiovascular mortality | [AHA](https://www.heart.org/en/news/2022/07/25/getting-more-exercise-than-guidelines-suggest-may-further-lower-death-risk) |
 
 If a number here is wrong or out of date, open an issue. The whole point is to be held to it.
 

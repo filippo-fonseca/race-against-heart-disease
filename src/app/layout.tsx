@@ -20,7 +20,7 @@ const caveat = Caveat({
   weight: ["400", "600"],
 });
 
-const description = `${site.author.name} is racing ${site.race.name} on ${site.race.dateLabel} for ${site.charity.team}, to make one argument out loud: hearts are built to be pushed. Every dollar goes to ${site.charity.name}.`;
+const description = `${site.author.name} is racing ${site.race.name} on ${site.race.dateLabel} with ${site.charity.team} to raise awareness that the habits which prevent coronary heart disease begin in childhood. Every dollar donated goes to ${site.charity.name}.`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),

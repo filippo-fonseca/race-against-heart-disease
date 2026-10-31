@@ -1,6 +1,6 @@
 import { site, stats } from "@/lib/site";
 import { Countdown } from "./Countdown";
-import { Lockup, Mark } from "./marks";
+import { Mark } from "./marks";
 
 export function Letter() {
   return (
@@ -9,7 +9,10 @@ export function Letter() {
       aria-labelledby="letter-title"
     >
       <header className="flex flex-wrap items-start justify-between gap-4">
-        <Lockup />
+        <div>
+          <div className="label">Letter No. 01</div>
+          <div className="label mt-1 !text-ink">Written standing up</div>
+        </div>
         <div className="text-right">
           <div className="label">
             Postmarked {site.race.city}, {site.race.stateAbbr}
@@ -24,47 +27,50 @@ export function Letter() {
         id="letter-title"
         className="font-serif text-[2rem] leading-[1.05] tracking-tight sm:text-[2.6rem]"
       >
-        To whoever is sitting down right now,
+        To every young heart, and everyone who looks after one,
       </h1>
 
       <div className="mt-8 space-y-6 font-serif text-[1.2rem] leading-[1.55] text-ink sm:text-[1.3rem]">
-        <p>Good. Stay there for two minutes. Then don&apos;t.</p>
-
         <p>
-          Heart disease kills more people than anything else on Earth. Not
-          war, not cancer, not the things we build monuments to. It kills
-          quietly, over decades, and most of the damage is done sitting down.
+          Coronary heart disease is the leading cause of death in the world.
+          It is also, in large part, a story that begins in childhood. The
+          habits a heart learns early, how much it moves, what it is fed, how
+          well it rests, set the course for the decades that follow. The
+          hopeful part is that this works in both directions. A heart that
+          learns to move young tends to keep moving for life.
         </p>
 
         <p>
-          I spend my days in a lab at Yale stressing engineered heart tissue
-          to understand what endurance does to a human heart. I would like to
-          run the experiment on myself.
+          I spend my days in a lab at Yale studying what exercise does to
+          human heart tissue. The more I learn, the more convinced I am that
+          the most powerful cardiac medicine we have is also the simplest and
+          the most joyful: a body in motion.
         </p>
 
         <p>
           So on <strong className="font-semibold">{site.race.dateLabel}</strong>
           , in {site.race.city}, {site.race.state}, I will swim 1.2 miles,
-          bike 56, and run 13.1. That is 70.3 miles in a morning, which is a
-          strange thing to ask of a body. That is the point. A heart is a
-          muscle. It gets stronger when you ask something of it, and it gives
-          up quietly when you don&apos;t. We are raising the first generation
-          of kids who may never find that out.
+          bike 56, and run 13.1 with {site.charity.team}, the charity team of{" "}
+          {site.charity.name}. I am not racing to prove I am an athlete. I am
+          racing to show, as plainly as I can, what a heart is capable of when
+          it is cared for, and to raise money for a foundation that puts that
+          chance in front of young people.
         </p>
 
         <p>
-          I am racing with {site.charity.team}, {site.charity.name}&apos;s
-          charity team, so every dollar you give goes to their work. The ask
-          is simple: if you can give, give. If you can&apos;t, close this
-          letter, go for a walk, and take a kid with you.
+          Here is what I hope this letter does. If you are able to give, every
+          dollar goes to {site.charity.name}. And whether or not you give, I
+          hope you will take a child you love outside this week and move with
+          them. It is among the best gifts you can give a heart, and it costs
+          nothing at all.
         </p>
 
-        <p>Either way, I will see you at the finish line.</p>
+        <p>Thank you for reading, and for caring about this with me.</p>
       </div>
 
       <div className="mt-10">
         <div className="font-serif text-[1.2rem] italic text-ink-soft">
-          Keep moving,
+          With gratitude, and in motion,
         </div>
         <div className="font-hand mt-1 text-[2.6rem] leading-none text-red">
           Filippo
@@ -87,7 +93,7 @@ export function Letter() {
           rel="noopener noreferrer"
           className="inline-flex items-center justify-center gap-2 bg-red px-6 py-3.5 font-serif text-[1.05rem] text-paper transition-colors hover:bg-red-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red"
         >
-          <Mark className="h-5 w-5" />
+          <Mark className="h-5 w-5" knockout={false} />
           Give through {site.charity.team}
         </a>
         <span className="label sm:ml-2">
@@ -96,8 +102,8 @@ export function Letter() {
       </div>
 
       <p className="mt-8 font-serif text-[1.05rem] italic leading-relaxed text-ink-soft">
-        P.S. This page is open source. The training, the splits, the
-        fundraising total: all of it will be public. Hold me to it.
+        P.S. This page is open source. The training, the race-day splits,
+        and the fundraising total will all be published here as they happen.
       </p>
 
       <hr className="my-10 border-rule" />
