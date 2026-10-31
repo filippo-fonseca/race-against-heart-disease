@@ -6,7 +6,11 @@ type SvgProps = React.SVGProps<SVGSVGElement>;
  * Campaign mark: a heart outline with a single ECG beat running through it.
  * The beat is the "race"; the heart is the "against".
  */
-export function Mark({ className, ...rest }: SvgProps) {
+export function Mark({
+  className,
+  knockout = true,
+  ...rest
+}: SvgProps & { knockout?: boolean }) {
   return (
     <svg
       viewBox="0 0 64 64"
@@ -21,14 +25,16 @@ export function Mark({ className, ...rest }: SvgProps) {
         strokeWidth="3"
         strokeLinejoin="round"
       />
-      {/* knock the heart outline out where the beat crosses it */}
-      <path
-        d="M2 32H21L26 22L31.5 44L37 18L41 36L44 32H62"
-        stroke="var(--paper)"
-        strokeWidth="9"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      {/* knock the heart outline out where the beat crosses it (paper bg only) */}
+      {knockout && (
+        <path
+          d="M2 32H21L26 22L31.5 44L37 18L41 36L44 32H62"
+          stroke="var(--paper)"
+          strokeWidth="9"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
       <path
         d="M2 32H21L26 22L31.5 44L37 18L41 36L44 32H62"
         stroke="currentColor"
@@ -47,7 +53,7 @@ export function Lockup({ className = "" }: { className?: string }) {
       <Mark className="h-7 w-7 text-red" />
       <div className="leading-none">
         <div className="font-serif text-[15px] tracking-tight">{site.name}</div>
-        <div className="label mt-1">
+        <div className="label mt-1 hidden whitespace-nowrap sm:block">
           {site.race.name} · {site.race.dateLabel}
         </div>
       </div>
@@ -62,11 +68,12 @@ export function Lockup({ className = "" }: { className?: string }) {
 export function Stamp({ className = "" }: { className?: string }) {
   return (
     <div
-      className={`stamp relative w-[88px] shrink-0 select-none p-[7px] shadow-[0_1px_2px_rgba(0,0,0,0.08)] sm:w-[104px] ${className}`}
+      className={`stamp-wrap relative w-[90px] shrink-0 select-none sm:w-[110px] ${className}`}
       aria-label={`Postage stamp: ${site.race.name}`}
       role="img"
     >
-      <div className="flex aspect-[4/5] flex-col justify-between border border-red p-2 text-red">
+      <div className="stamp flex aspect-[4/5] flex-col justify-between p-[12px] text-red">
+        <div className="flex h-full flex-col justify-between border border-red p-1.5">
         <div className="flex items-start justify-between">
           <span className="label !text-red !text-[8px] !tracking-[0.12em]">
             USA
@@ -85,6 +92,7 @@ export function Stamp({ className = "" }: { className?: string }) {
           IRONMAN 70.3
           <br />
           TEXAS
+        </div>
         </div>
       </div>
     </div>

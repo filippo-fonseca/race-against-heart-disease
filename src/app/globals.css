@@ -49,14 +49,27 @@ body {
   color: var(--ink-soft);
 }
 
-/* Perforated postage-stamp edge */
+/* Perforated postage-stamp edge: holes along the four edges, solid center.
+   The wrapper carries the drop-shadow so it follows the perforated silhouette. */
+.stamp-wrap {
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.18));
+}
+
 .stamp {
-  --perf: 5px;
+  --hole: radial-gradient(circle at 5px 5px, transparent 3.5px, #000 4px);
   background: var(--paper);
   -webkit-mask:
-    radial-gradient(circle at var(--perf) var(--perf), transparent var(--perf), #000 calc(var(--perf) + 0.5px)) -5px -5px / 10px 10px round;
+    var(--hole) 0 0 / 10px 10px round no-repeat,
+    var(--hole) 0 100% / 10px 10px round no-repeat,
+    var(--hole) 0 0 / 10px 10px no-repeat round,
+    var(--hole) 100% 0 / 10px 10px no-repeat round,
+    linear-gradient(#000, #000) 10px 10px / calc(100% - 20px) calc(100% - 20px) no-repeat;
   mask:
-    radial-gradient(circle at var(--perf) var(--perf), transparent var(--perf), #000 calc(var(--perf) + 0.5px)) -5px -5px / 10px 10px round;
+    var(--hole) 0 0 / 10px 10px round no-repeat,
+    var(--hole) 0 100% / 10px 10px round no-repeat,
+    var(--hole) 0 0 / 10px 10px no-repeat round,
+    var(--hole) 100% 0 / 10px 10px no-repeat round,
+    linear-gradient(#000, #000) 10px 10px / calc(100% - 20px) calc(100% - 20px) no-repeat;
 }
 
 /* Envelope open/close choreography */
@@ -85,11 +98,16 @@ body {
   opacity: 0;
 }
 
+/* Hidden while sealed so nothing peeks past the flap; revealed as it lifts. */
 .letter-sheet {
-  transition: transform 900ms cubic-bezier(0.2, 0.7, 0.2, 1) 300ms;
+  opacity: 0;
+  transition:
+    transform 900ms cubic-bezier(0.2, 0.7, 0.2, 1) 300ms,
+    opacity 200ms ease 250ms;
 }
 
 .is-opening .letter-sheet {
+  opacity: 1;
   transform: translateY(-46%);
 }
 
