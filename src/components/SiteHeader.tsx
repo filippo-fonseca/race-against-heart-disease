@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Mark } from "./marks";
 import { site } from "@/lib/site";
 
-type Current = "letter" | "training";
+/** "admin" renders the bar with no active tab. */
+type Current = "letter" | "training" | "admin";
 
 /** Sticky, translucent top bar shared by every page. */
 export function SiteHeader({ current }: { current: Current }) {
