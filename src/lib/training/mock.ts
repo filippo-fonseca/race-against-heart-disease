@@ -7,7 +7,7 @@
 
 import type { Activity, ActivityPhoto, Athlete, AthleteSlug, PlanSession, Sport } from "./types";
 import { addDays } from "./dates";
-import { PLAN_START, getPlan } from "./plan";
+import { PLAN_START } from "./plan";
 
 /** The fixtures pretend it is this day: a Thursday in week 6. */
 export const MOCK_TODAY = "2026-12-10";
@@ -148,7 +148,7 @@ function generateActivities(athlete: AthleteSlug, plan: PlanSession[], today: st
   return out.sort((a, b) => a.startLocal.localeCompare(b.startLocal));
 }
 
-/** Both athletes' fixtures through `today`, built against the real plan. */
-export function mockActivities(plan: PlanSession[] = getPlan(), today: string = MOCK_TODAY): Activity[] {
+/** Both athletes' fixtures through `today`, built against the given plan (normally `await getPlan()`). */
+export function mockActivities(plan: PlanSession[], today: string = MOCK_TODAY): Activity[] {
   return [...generateActivities("filippo", plan, today), ...generateActivities("emir", plan, today)];
 }

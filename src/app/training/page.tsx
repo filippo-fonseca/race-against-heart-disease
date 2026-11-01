@@ -15,7 +15,7 @@ import { addDays, daysBetween, todayISO, weekStartOf } from "@/lib/training/date
 import { DEFAULT_ATHLETES, loadTraining, resolveAthletes, type TrainingData } from "@/lib/training/load";
 import { buildMatches } from "@/lib/training/matcher";
 import { PLAN_START, PLAN_WEEKS, RACE_DATE, appliesTo, daysToRace, getPlan, phaseForWeek, weekOf, weekStart } from "@/lib/training/plan";
-import type { Activity, Athlete } from "@/lib/training/types";
+import type { Activity, Athlete, PlanSession } from "@/lib/training/types";
 import "./training.css";
 
 export const metadata: Metadata = {
@@ -45,22 +45,24 @@ function parseFilter(v: string | string[] | undefined): AthleteFilter {
  * Real data from Supabase (cached, tagged; see lib/training/load.ts). The
  * deterministic fixtures are reachable only with `?mock=1` outside production.
  */
-async function loadSource(useMock: boolean): Promise<{ data: TrainingData; today: string }> {
+async function loadSource(useMock: boolean): Promise<{ data: TrainingData; plan: PlanSession[]; today: string }> {
   if (useMock && process.env.NODE_ENV !== "production") {
     const mock = await import("@/lib/training/mock");
+    const plan = await getPlan();
     return {
-      data: { athletes: mock.mockAthletes, activities: mock.mockActivities(), error: null },
+      data: { athletes: mock.mockAthletes, activities: mock.mockActivities(plan), error: null },
+      plan,
       today: mock.MOCK_TODAY,
     };
   }
   // Today's date is request-time data; tell the prerenderer so before reading the clock.
   await connection();
-  return { data: await loadTraining(), today: todayISO() };
+  const [data, plan] = await Promise.all([loadTraining(), getPlan()]);
+  return { data, plan, today: todayISO() };
 }
 
 async function loadTrainingView(filter: AthleteFilter, useMock: boolean) {
-  const { data, today } = await loadSource(useMock);
-  const plan = getPlan();
+  const { data, plan, today } = await loadSource(useMock);
   const allAthletes = resolveAthletes(data.athletes);
   const selected = allAthletes.filter((a) => filter === "both" || a.slug === filter);
   const activities: Activity[] = data.activities.filter((a) => selected.some((s) => s.slug === a.athlete));

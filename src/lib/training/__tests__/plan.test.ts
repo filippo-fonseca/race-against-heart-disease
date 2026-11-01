@@ -1,9 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PLAN_START, PLAN_WEEKS, RACE_DATE, daysToRace, getPlan, planWindow, sessionsOn, validatePlan, weekOf } from "../plan";
+import planJson from "../../../../data/plan.json";
+import { PLAN_START, PLAN_WEEKS, RACE_DATE, daysToRace, planWindow, sessionsOn, validatePlan, weekOf } from "../plan";
 import { addDays, weekday } from "../dates";
 
-const plan = getPlan();
+/** Tests read the bundled JSON directly; getPlan() is the DB-backed path. */
+const plan = validatePlan(planJson);
 
 test("plan loads, validates and spans 22 weeks", () => {
   assert.ok(plan.length > 200);
@@ -47,8 +49,8 @@ test("weeks are contiguous with no gaps", () => {
 test("Monday is always a rest day for both athletes", () => {
   for (let w = 0; w < PLAN_WEEKS; w += 1) {
     const monday = addDays(PLAN_START, w * 7);
-    assert.deepEqual(sessionsOn(monday, "filippo"), []);
-    assert.deepEqual(sessionsOn(monday, "emir"), []);
+    assert.deepEqual(sessionsOn(monday, "filippo", plan), []);
+    assert.deepEqual(sessionsOn(monday, "emir", plan), []);
   }
 });
 
@@ -69,7 +71,7 @@ test("phases cover the right weeks", () => {
 });
 
 test("race day is present with all three legs and the simulation lands in Peak", () => {
-  const race = sessionsOn(RACE_DATE, "filippo");
+  const race = sessionsOn(RACE_DATE, "filippo", plan);
   assert.deepEqual(race.map((s) => s.sport).sort(), ["bike", "run", "swim"]);
   assert.ok(race.every((s) => s.week === PLAN_WEEKS));
   const sim = plan.filter((s) => s.title.startsWith("Race simulation"));
