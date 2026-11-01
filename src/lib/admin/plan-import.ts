@@ -304,6 +304,10 @@ export function changedFields(before: PlanSession, after: PlanSession): string[]
  * "csv-range" treats only DB rows inside the CSV's date span as candidates
  * for removal; "all" treats every DB row absent from the CSV as removed.
  */
+function naturalKey(date: string, sport: string, title: string): string {
+  return `${date}|${sport}|${slug(title)}`;
+}
+
 export function diffPlan(incoming: PlanSession[], existing: PlanSession[], opts: { scope: DiffScope }): PlanDiff {
   let from = "";
   let to = "";
@@ -313,18 +317,48 @@ export function diffPlan(incoming: PlanSession[], existing: PlanSession[], opts:
   }
 
   const byId = new Map(existing.map((s) => [s.id, s] as const));
+  // Natural keys, so a CSV with blank ids (the planning-agent case) matches
+  // rows the seed or a previous upload created under different ids.
+  const byTitle = new Map<string, PlanSession>();
+  const byDaySport = new Map<string, PlanSession[]>();
+  for (const s of existing) {
+    byTitle.set(naturalKey(s.date, s.sport, s.title), s);
+    const k = `${s.date}|${s.sport}`;
+    byDaySport.set(k, [...(byDaySport.get(k) ?? []), s]);
+  }
+  const incomingDaySport = new Map<string, number>();
+  for (const s of incoming) {
+    const k = `${s.date}|${s.sport}`;
+    incomingDaySport.set(k, (incomingDaySport.get(k) ?? 0) + 1);
+  }
+  const claimed = new Set<string>();
+  const resolve = (after: PlanSession): PlanSession | undefined => {
+    const direct = byId.get(after.id);
+    if (direct && !claimed.has(direct.id)) return direct;
+    const titled = byTitle.get(naturalKey(after.date, after.sport, after.title));
+    if (titled && !claimed.has(titled.id)) return titled;
+    const k = `${after.date}|${after.sport}`;
+    const candidates = (byDaySport.get(k) ?? []).filter((s) => !claimed.has(s.id));
+    if (candidates.length === 1 && incomingDaySport.get(k) === 1) return candidates[0];
+    return undefined;
+  };
+
   const seen = new Set<string>();
   const added: PlanSession[] = [];
   const changed: PlanChange[] = [];
   let unchanged = 0;
 
-  for (const after of incoming) {
-    seen.add(after.id);
-    const before = byId.get(after.id);
+  for (const raw of incoming) {
+    const before = resolve(raw);
     if (!before) {
-      added.push(after);
+      seen.add(raw.id);
+      added.push(raw);
       continue;
     }
+    claimed.add(before.id);
+    seen.add(before.id);
+    // Keep the stored id so the write updates in place instead of duplicating.
+    const after = raw.id === before.id ? raw : { ...raw, id: before.id };
     const fields = changedFields(before, after);
     if (fields.length === 0) unchanged += 1;
     else changed.push({ before, after, fields });

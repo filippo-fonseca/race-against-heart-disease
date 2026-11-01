@@ -192,3 +192,28 @@ test("diffPlan removes only inside the CSV range under csv-range, everything abs
   assert.deepEqual(empty.range, { from: "", to: "" });
   assert.equal(diffPlan([], existing, { scope: "all" }).removed.length, 4);
 });
+
+test("diffPlan matches blank-id CSV rows to seeded rows by date, sport and title, then by unique date and sport", () => {
+  const seeded = plan.filter((s) => s.date === "2026-11-03" || s.date === "2026-11-04");
+  assert.ok(seeded.length >= 3, "fixture week has sessions on Nov 3 and 4");
+  const swim = seeded.find((s) => s.date === "2026-11-03" && s.sport === "swim")!;
+  const bike = seeded.find((s) => s.date === "2026-11-03" && s.sport === "bike")!;
+  const csv = [
+    HEADER,
+    `2026-11-03,swim,${swim.title},"${(swim.detail ?? "").replace(/"/g, '""')}",${(swim.targetMin ?? 0) + 5},${swim.targetKm ?? ""},,${swim.phase ?? ""},${swim.week},`,
+    `2026-11-03,bike,Renamed ride,"${(bike.detail ?? "").replace(/"/g, '""')}",${bike.targetMin ?? ""},${bike.targetKm ?? ""},,${bike.phase ?? ""},${bike.week},`,
+  ].join("\n");
+  const { rows, errors } = parsePlanCsv(csv);
+  assert.equal(errors.length, 0);
+  const diff = diffPlan(rows, seeded, { scope: "csv-range" });
+  assert.equal(diff.added.length, 0, "no row is new: titles or unique day+sport match");
+  assert.equal(diff.changed.length, 2);
+  const swimChange = diff.changed.find((c) => c.before.id === swim.id)!;
+  assert.deepEqual(swimChange.fields, ["targetMin"]);
+  assert.equal(swimChange.after.id, swim.id, "stored id is kept so the write updates in place");
+  const bikeChange = diff.changed.find((c) => c.before.id === bike.id)!;
+  assert.ok(bikeChange.fields.includes("title"));
+  assert.equal(diff.removed.length, 0, "csv-range: the Nov 4 rows sit outside the CSV's dates");
+  const all = diffPlan(rows, seeded, { scope: "all" });
+  assert.equal(all.removed.length, seeded.length - 2, "all: every unmatched DB row counts as removed");
+});
