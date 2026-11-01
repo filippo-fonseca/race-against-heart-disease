@@ -7,7 +7,7 @@ type Current = "letter" | "training";
 /** Sticky, translucent top bar shared by every page. */
 export function SiteHeader({ current }: { current: Current }) {
   const tab = (active: boolean) =>
-    `label !tracking-[0.06em] transition-colors ${
+    `label whitespace-nowrap !tracking-[0.06em] transition-colors ${
       active ? "!text-ink" : "!text-ink-faint hover:!text-ink"
     }`;
 
@@ -16,19 +16,21 @@ export function SiteHeader({ current }: { current: Current }) {
       <div className="mx-auto flex h-14 max-w-[1200px] items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2.5" aria-label={site.name}>
           <Mark className="h-6 w-6 text-red" knockout={false} />
-          <span className="font-serif text-[15px] tracking-tight">{site.name}</span>
+          <span className="hidden font-serif text-[15px] tracking-tight sm:inline">{site.name}</span>
         </Link>
 
         <nav className="flex items-center gap-5 sm:gap-7" aria-label="Site">
           <Link href="/" className={tab(current === "letter")} aria-current={current === "letter" ? "page" : undefined}>
-            The letter
+            <span className="sm:hidden">Letter</span>
+            <span className="hidden sm:inline">The letter</span>
           </Link>
           <Link
             href="/training"
             className={tab(current === "training")}
             aria-current={current === "training" ? "page" : undefined}
           >
-            The training
+            <span className="sm:hidden">Training</span>
+            <span className="hidden sm:inline">The training</span>
           </Link>
           <a
             href={site.donateUrl}

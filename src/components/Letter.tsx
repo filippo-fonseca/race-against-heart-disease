@@ -33,7 +33,7 @@ export function Letter() {
             </div>
           </div>
         </div>
-        <div className="text-right">
+        <div className="sm:text-right">
           <div className="label">Letter No. 01</div>
           <Countdown className="label mt-1.5 block !text-red" />
         </div>
