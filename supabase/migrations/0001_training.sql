@@ -1,9 +1,14 @@
--- Training log: athletes + activities.
--- Mirrors docs/TRAINING-LOG.md. Apply with `supabase db push` or paste into the
--- SQL editor. Tokens live here and are only ever read by server code using the
+-- Training log: athletes + activities, in their own `training` schema.
+-- Mirrors docs/TRAINING-LOG.md. This lives in the shared "hyperpolymath-v3"
+-- Supabase project (ref mwpwnyhtzkabriohwlbq), so nothing goes in `public`.
+-- Apply with `supabase db push` or paste into the SQL editor.
+--
+-- Tokens live here and are only ever read by server code using the
 -- service-role key; RLS is on with no policies, so the anon key sees nothing.
 
-create table if not exists public.athletes (
+create schema if not exists training;
+
+create table if not exists training.athletes (
   slug          text primary key,            -- 'filippo' | 'amir'
   name          text not null,
   strava_id     bigint unique,
@@ -14,9 +19,9 @@ create table if not exists public.athletes (
   created_at    timestamptz not null default now()
 );
 
-create table if not exists public.activities (
+create table if not exists training.activities (
   id                bigint primary key,      -- Strava activity id
-  athlete_slug      text not null references public.athletes(slug) on delete cascade,
+  athlete_slug      text not null references training.athletes(slug) on delete cascade,
   sport             text not null check (sport in ('swim', 'bike', 'run', 'strength', 'other')),
   strava_sport_type text not null,
   name              text not null,
@@ -38,9 +43,18 @@ create table if not exists public.activities (
 );
 
 create index if not exists activities_athlete_slug_date_idx
-  on public.activities (athlete_slug, date);
+  on training.activities (athlete_slug, date);
 
-alter table public.athletes   enable row level security;
-alter table public.activities enable row level security;
+alter table training.athletes   enable row level security;
+alter table training.activities enable row level security;
 -- Intentionally no policies: nothing is readable or writable through the anon
 -- or authenticated roles. The service role bypasses RLS.
+
+grant usage on schema training to service_role;
+grant all on all tables in schema training to service_role;
+alter default privileges in schema training grant all on tables to service_role;
+
+-- PostgREST only serves schemas it is told about. This is the same as adding
+-- `training` under Dashboard > Settings > API > Exposed schemas.
+alter role authenticator set pgrst.db_schemas = 'public, graphql_public, training';
+notify pgrst, 'reload config';

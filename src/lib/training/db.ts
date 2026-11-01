@@ -1,5 +1,5 @@
 import "server-only";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import type {
   Activity,
   ActivityPhoto,
@@ -12,9 +12,13 @@ import type {
  * Server-only Supabase access for the training log. Uses the service-role key,
  * so this module must never be imported from a Client Component. Scripts run
  * it under `tsx --conditions=react-server` so the `server-only` marker is inert.
+ *
+ * Tables live in the `training` Postgres schema (the Supabase project is
+ * shared), so the client is pinned to it and `.from("activities")` resolves to
+ * `training.activities`.
  */
 
-/** Row shape of `public.athletes`. */
+/** Row shape of `training.athletes`. */
 export interface AthleteRow {
   slug: AthleteSlug;
   name: string;
@@ -27,7 +31,7 @@ export interface AthleteRow {
   created_at: string;
 }
 
-/** Row shape of `public.activities`. */
+/** Row shape of `training.activities`. */
 export interface ActivityRow {
   id: number;
   athlete_slug: AthleteSlug;
@@ -56,10 +60,20 @@ export type ActivityInsert = Omit<ActivityRow, "updated_at"> & {
   updated_at?: string;
 };
 
-let client: SupabaseClient | null = null;
+function makeClient(url: string, key: string) {
+  return createClient(url, key, {
+    db: { schema: "training" },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+/** supabase-js client pinned to the `training` schema. */
+export type TrainingClient = ReturnType<typeof makeClient>;
+
+let client: TrainingClient | null = null;
 
 /** Lazily constructed singleton. Throws if the env is missing. */
-export function db(): SupabaseClient {
+export function db(): TrainingClient {
   if (client) return client;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -68,9 +82,7 @@ export function db(): SupabaseClient {
       "Supabase is not configured: set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
     );
   }
-  client = createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  client = makeClient(url, key);
   return client;
 }
 
