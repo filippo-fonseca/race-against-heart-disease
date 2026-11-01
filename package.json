@@ -11,7 +11,8 @@
     "strava:backfill": "tsx --conditions=react-server scripts/strava-backfill.ts",
     "strava:subscribe": "tsx --conditions=react-server scripts/strava-subscribe.ts",
     "test": "node --import tsx --test src/lib/training/__tests__/*.test.ts",
-    "plan:gen": "tsx scripts/gen-plan.ts"
+    "plan:gen": "tsx scripts/gen-plan.ts",
+    "plan:seed": "tsx --conditions=react-server scripts/plan-seed.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.109.0",
