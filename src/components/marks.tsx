@@ -3,10 +3,10 @@ import { site } from "@/lib/site";
 type SvgProps = React.SVGProps<SVGSVGElement>;
 
 /**
- * Campaign mark: a solid Y with a heart cut out of the junction. The hole is
- * a true knockout (evenodd), so the mark sits on any ground in one color.
+ * Campaign mark: a solid heart with a Y cut out of it. The Y is a true
+ * knockout (evenodd), so the mark sits on any ground in one color.
  */
-export const MARK_PATH = "M6 6H21L32 23L43 6H58L39 34V59H25V34Z M32 42C32 42 27 38.4 27 34.4C27 32 28.7 30.5 30.5 30.5C31.2 30.5 31.7 31 32 31.8C32.3 31 32.8 30.5 33.5 30.5C35.3 30.5 37 32 37 34.4C37 38.4 32 42 32 42Z";
+export const MARK_PATH = "M32 58C32 58 6 41.5 6 24.5C6 15 13.2 8 21.5 8C26.2 8 30 10.8 32 14.6C34 10.8 37.8 8 42.5 8C50.8 8 58 15 58 24.5C58 41.5 32 58 32 58Z M19 17H26.5L32 25.5L37.5 17H45L35.5 31V48H28.5V31Z";
 
 export function Mark({ className, ...rest }: SvgProps) {
   return (
@@ -156,7 +156,7 @@ export function Seal({ className = "" }: { className?: string }) {
           strokeOpacity="0.35"
           strokeWidth="1.2"
         />
-        <path transform="translate(18 17) scale(0.44)" d={MARK_PATH} fill="#fff" fillRule="evenodd" />
+        <path transform="translate(17 16) scale(0.47)" d={MARK_PATH} fill="#fff" fillRule="evenodd" />
       </svg>
     </span>
   );
