@@ -23,14 +23,11 @@ export function Letter() {
 
       <hr className="my-8 border-rule" />
 
-      <h1
-        id="letter-title"
-        className="font-serif text-[2rem] leading-[1.05] tracking-tight sm:text-[2.6rem]"
-      >
-        To every young heart, and everyone who looks after one,
+      <h1 id="letter-title" className="sr-only">
+        {site.name}
       </h1>
 
-      <div className="mt-8 space-y-6 font-serif text-[1.2rem] leading-[1.55] text-ink sm:text-[1.3rem]">
+      <div className="space-y-6 font-serif text-[1.2rem] leading-[1.55] text-ink sm:text-[1.3rem]">
         <p>
           For what little attention it gets, I was surprised to find out that
           coronary heart disease is the leading cause of death worldwide. What
