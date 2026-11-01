@@ -1,7 +1,7 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import type { NextRequest } from "next/server";
+import { connection, type NextRequest } from "next/server";
 
 /**
  * Single-admin auth for /admin. The password lives in ADMIN_PASSWORD and is
@@ -98,6 +98,8 @@ export async function endSession(): Promise<void> {
 
 /** Whether the current request carries a valid session (no redirect). */
 export async function isAdmin(): Promise<boolean> {
+  // Session expiry is checked against the clock, so this is request-time work.
+  await connection();
   return verifySessionToken((await cookies()).get(ADMIN_COOKIE)?.value);
 }
 
