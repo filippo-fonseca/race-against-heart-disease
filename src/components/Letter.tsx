@@ -32,29 +32,35 @@ export function Letter() {
 
       <div className="mt-8 space-y-6 font-serif text-[1.2rem] leading-[1.55] text-ink sm:text-[1.3rem]">
         <p>
-          Coronary heart disease is the leading cause of death in the world.
-          It is also, in large part, a story that begins in childhood. The
-          habits a heart learns early, how much it moves, what it is fed, how
-          well it rests, set the course for the decades that follow. The
-          hopeful part is that this works in both directions. A heart that
-          learns to move young tends to keep moving for life.
+          For what little attention it gets, I was surprised to find out that
+          coronary heart disease is the leading cause of death worldwide. What
+          makes me the most sad on a personal level is how, more often than
+          not, it is entirely preventable. Some people are more genetically
+          predisposed than others, and certain factors are out of anyone&apos;s
+          control. But the habits we build in childhood and early adulthood
+          are the ones that not only persist, but eventually lead to hearts
+          that cannot keep up.
         </p>
 
         <p>
-          I spend my days in a lab at Yale studying what exercise does to
-          human heart tissue. The more I learn, the more convinced I am that
-          the most powerful cardiac medicine we have is also the simplest and
-          the most joyful: a body in motion.
+          It often looks like this: plaque builds in the coronary arteries,
+          causing years of hypertension and discomfort, until eventually the
+          plaque dislodges, a blood clot forms, and the heart muscle is
+          starved of oxygen. This breaks my heart (no pun intended),
+          particularly because so often the root of it is children simply
+          never being exposed to the habits that take care of their hearts,
+          and their entire bodies, at all.
         </p>
 
         <p>
-          So on <strong className="font-semibold">{site.race.dateLabel}</strong>
-          , in {site.race.city}, {site.race.state}, I will swim 1.2 miles,
-          bike 56, and run 13.1 with {site.charity.team}, the charity team of{" "}
+          Thus, on{" "}
+          <strong className="font-semibold">{site.race.dateLabel}</strong>, in{" "}
+          {site.race.city}, {site.race.state}, I will swim 1.2 miles, bike 56,
+          and run 13.1 with {site.charity.team}, the charity team of{" "}
           {site.charity.name}. I am not racing to prove I am an athlete. I am
           racing to show, as plainly as I can, what a heart is capable of when
-          it is cared for, and to raise money for a foundation that puts that
-          chance in front of young people.
+          it is cared for from the start, and to raise money for a foundation
+          that puts that chance in front of young people.
         </p>
 
         <p>
