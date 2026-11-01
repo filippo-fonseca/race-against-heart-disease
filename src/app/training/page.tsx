@@ -38,7 +38,7 @@ function first(v: string | string[] | undefined): string | undefined {
 
 function parseFilter(v: string | string[] | undefined): AthleteFilter {
   const s = first(v);
-  return s === "filippo" || s === "amir" ? s : "both";
+  return s === "filippo" || s === "emir" ? s : "both";
 }
 
 /**

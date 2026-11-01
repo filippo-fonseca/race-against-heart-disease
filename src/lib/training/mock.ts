@@ -14,7 +14,7 @@ export const MOCK_TODAY = "2026-12-10";
 
 export const mockAthletes: Athlete[] = [
   { slug: "filippo", name: "Filippo", stravaId: 1001, avatarUrl: null },
-  { slug: "amir", name: "Amir", stravaId: 1002, avatarUrl: null },
+  { slug: "emir", name: "Emir", stravaId: 1002, avatarUrl: null },
 ];
 
 function mulberry32(seed: number) {
@@ -68,7 +68,7 @@ type Profile = { seed: number; adherence: number; hrOffset: number; startHour: n
 
 const profiles: Record<AthleteSlug, Profile> = {
   filippo: { seed: 11, adherence: 0.9, hrOffset: 0, startHour: 6 },
-  amir: { seed: 23, adherence: 0.82, hrOffset: 6, startHour: 18 },
+  emir: { seed: 23, adherence: 0.82, hrOffset: 6, startHour: 18 },
 };
 
 function generateActivities(athlete: AthleteSlug, plan: PlanSession[], today: string): Activity[] {
@@ -150,5 +150,5 @@ function generateActivities(athlete: AthleteSlug, plan: PlanSession[], today: st
 
 /** Both athletes' fixtures through `today`, built against the real plan. */
 export function mockActivities(plan: PlanSession[] = getPlan(), today: string = MOCK_TODAY): Activity[] {
-  return [...generateActivities("filippo", plan, today), ...generateActivities("amir", plan, today)];
+  return [...generateActivities("filippo", plan, today), ...generateActivities("emir", plan, today)];
 }

@@ -82,8 +82,8 @@ test("unplanned activity on a free day is done, not rest", () => {
 });
 
 test("sessions and activities for the other athlete are ignored", () => {
-  const plan = [planned({ date: "2026-11-17", sport: "run", athletes: ["amir"] })];
-  const acts = [activity({ date: "2026-11-17", sport: "run", athlete: "amir" })];
+  const plan = [planned({ date: "2026-11-17", sport: "run", athletes: ["emir"] })];
+  const acts = [activity({ date: "2026-11-17", sport: "run", athlete: "emir" })];
   const m = matchDay("2026-11-17", "filippo", plan, acts, TODAY);
   assert.equal(m.status, "rest");
   assert.equal(m.planned.length, 0);

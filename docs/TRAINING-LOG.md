@@ -1,6 +1,6 @@
 # Training log: architecture
 
-The `/training` page is an automated daily log of the build toward IRONMAN 70.3 Texas (April 4, 2027). Training starts **November 2, 2026**. Two athletes train together: Filippo and his training partner Amir. Activities come from Strava automatically; the training program lives in this repo; the page matches the two and charts everything.
+The `/training` page is an automated daily log of the build toward IRONMAN 70.3 Texas (April 4, 2027). Training starts **November 2, 2026**. Two athletes train together: Filippo and his training partner Emir. Activities come from Strava automatically; the training program lives in this repo; the page matches the two and charts everything.
 
 ## Data flow
 
@@ -17,7 +17,7 @@ Pages never call Strava directly. Strava's limits are 100 requests / 15 min and 
 
 ```sql
 athletes (
-  slug text primary key,              -- 'filippo' | 'amir'
+  slug text primary key,              -- 'filippo' | 'emir'
   name text not null,
   strava_id bigint unique,
   avatar_url text,
@@ -85,7 +85,7 @@ Data lives in the shared Supabase project `hyperpolymath-v3` (ref `mwpwnyhtzkabr
 1. **Database.** Apply `supabase/migrations/0001_training.sql` (SQL editor or `supabase db push`). PostgREST must also expose the schema: either add `training` under Dashboard > Settings > API > Exposed schemas, or rely on the `alter role authenticator set pgrst.db_schemas = 'public, graphql_public, training'; notify pgrst, 'reload config';` statement at the end of the migration.
 2. **Strava app.** Create one at strava.com/settings/api. Set Authorization Callback Domain to `localhost` (the auth script redirects to `http://localhost:4567/callback`). Copy the client id and secret.
 3. **Env.** Put the variables from the Environment section above in `.env.local` locally and in the Vercel project. `STRAVA_WEBHOOK_VERIFY_TOKEN` and `CRON_SECRET` are random strings you choose; Vercel sends `CRON_SECRET` to the cron route automatically once it is set. `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` come from the Supabase project settings.
-4. **Authorize each athlete** (one time): `npm run strava:auth -- --athlete filippo`, then the same for `amir`. Each run opens the consent page and writes the athlete row with tokens.
+4. **Authorize each athlete** (one time): `npm run strava:auth -- --athlete filippo`, then the same for `emir`. Each run opens the consent page and writes the athlete row with tokens.
 5. **Backfill**: `npm run strava:backfill -- --athlete filippo --since 2026-11-02` (omit `--athlete` for both). Re-run if it reports the budget was exhausted.
 6. **Webhook** (after the site is deployed with the env above): `npm run strava:subscribe -- --callback https://raceagainstheartdisease.com/api/strava/webhook`. `--list` shows the current subscription and `--delete <id>` removes it. The cron in `vercel.json` hits `/api/strava/sync` every 30 minutes regardless, so a missed webhook event is reconciled within the half hour.
 

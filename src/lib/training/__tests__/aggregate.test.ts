@@ -44,7 +44,7 @@ test("weekly totals fill empty weeks between first and last so charts are contig
 test("weekly totals respect a clamped range and ignore the other athlete", () => {
   const acts = [
     activity({ date: "2026-11-03", sport: "run", movingTimeSec: 600 }),
-    activity({ date: "2026-11-03", sport: "run", movingTimeSec: 999, athlete: "amir" }),
+    activity({ date: "2026-11-03", sport: "run", movingTimeSec: 999, athlete: "emir" }),
     activity({ date: "2026-12-25", sport: "run", movingTimeSec: 600 }),
   ];
   const rows = weeklyTotals(acts, [], "filippo", { from: "2026-11-02", to: "2026-11-15" });
@@ -78,7 +78,7 @@ test("summary totals since a date for one athlete", () => {
     activity({ date: "2026-11-01", sport: "run", movingTimeSec: 1000, distanceM: 3000 }), // before since
     activity({ date: "2026-11-02", sport: "swim", movingTimeSec: 2000, distanceM: 1200 }),
     activity({ date: "2026-11-03", sport: "bike", movingTimeSec: 3000, distanceM: 25000 }),
-    activity({ date: "2026-11-03", sport: "bike", movingTimeSec: 500, athlete: "amir" }),
+    activity({ date: "2026-11-03", sport: "bike", movingTimeSec: 500, athlete: "emir" }),
   ];
   const s = summary(acts, "filippo", "2026-11-02", "2026-11-03");
   assert.equal(s.sessions, 2);

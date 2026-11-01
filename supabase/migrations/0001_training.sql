@@ -9,7 +9,7 @@
 create schema if not exists training;
 
 create table if not exists training.athletes (
-  slug          text primary key,            -- 'filippo' | 'amir'
+  slug          text primary key,            -- 'filippo' | 'emir'
   name          text not null,
   strava_id     bigint unique,
   avatar_url    text,

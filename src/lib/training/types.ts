@@ -5,7 +5,7 @@
 
 export type Sport = "swim" | "bike" | "run" | "strength" | "other";
 
-export type AthleteSlug = "filippo" | "amir";
+export type AthleteSlug = "filippo" | "emir";
 
 export interface Athlete {
   slug: AthleteSlug;

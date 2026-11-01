@@ -18,8 +18,8 @@ export function requireEnv(name: string): string {
   return value;
 }
 
-export function parseAthlete(value: string | undefined): "filippo" | "amir" {
-  if (value === "filippo" || value === "amir") return value;
-  console.error("Pass --athlete filippo or --athlete amir.");
+export function parseAthlete(value: string | undefined): "filippo" | "emir" {
+  if (value === "filippo" || value === "emir") return value;
+  console.error("Pass --athlete filippo or --athlete emir.");
   process.exit(1);
 }

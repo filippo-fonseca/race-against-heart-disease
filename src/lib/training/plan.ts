@@ -41,7 +41,7 @@ export interface PlanWeek {
 }
 
 const SPORTS: readonly Sport[] = ["swim", "bike", "run", "strength", "other"];
-const ATHLETES: readonly AthleteSlug[] = ["filippo", "amir"];
+const ATHLETES: readonly AthleteSlug[] = ["filippo", "emir"];
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);

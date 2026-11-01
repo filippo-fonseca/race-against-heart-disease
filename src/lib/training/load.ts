@@ -19,7 +19,7 @@ export interface TrainingData {
 /** The two slugs the plan knows about, used until the athletes table has rows. */
 export const DEFAULT_ATHLETES: Athlete[] = [
   { slug: "filippo", name: "Filippo", stravaId: null, avatarUrl: null },
-  { slug: "amir", name: "Amir", stravaId: null, avatarUrl: null },
+  { slug: "emir", name: "Emir", stravaId: null, avatarUrl: null },
 ];
 
 const EMPTY: TrainingData = { athletes: [], activities: [], error: null };

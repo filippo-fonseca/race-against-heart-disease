@@ -6,7 +6,7 @@
 
 import type { Activity, DayMatch, PlanSession, Sport, WeeklyTotals } from "@/lib/training/types";
 
-export type AthleteFilter = "filippo" | "amir" | "both";
+export type AthleteFilter = "filippo" | "emir" | "both";
 
 export const SPORTS: Sport[] = ["swim", "bike", "run", "strength", "other"];
 

@@ -48,7 +48,7 @@ test("Monday is always a rest day for both athletes", () => {
   for (let w = 0; w < PLAN_WEEKS; w += 1) {
     const monday = addDays(PLAN_START, w * 7);
     assert.deepEqual(sessionsOn(monday, "filippo"), []);
-    assert.deepEqual(sessionsOn(monday, "amir"), []);
+    assert.deepEqual(sessionsOn(monday, "emir"), []);
   }
 });
 
