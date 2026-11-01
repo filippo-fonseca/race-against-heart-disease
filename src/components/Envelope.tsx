@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { site } from "@/lib/site";
-import { Letter } from "./Letter";
 import { Postmark, Seal, Stamp } from "./marks";
 
 type Stage = "closed" | "opening" | "open";
@@ -12,7 +11,8 @@ const OPEN_MS = 1400;
 /** Pause on the sealed envelope before it opens on its own. */
 const AUTO_OPEN_MS = 1600;
 
-export function Envelope() {
+/** `letter` is server-rendered by the page so its async parts stay on the server. */
+export function Envelope({ letter }: { letter: React.ReactNode }) {
   const [stage, setStage] = useState<Stage>("closed");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -46,20 +46,20 @@ export function Envelope() {
 
   if (stage === "open") {
     return (
-      <div className="px-4 py-6 sm:px-8 sm:py-12">
-        <Letter />
+      <div className="px-4 py-6 sm:px-6 sm:py-10">
+        {letter}
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-64px)] items-center justify-center px-4 py-10">
+    <div className="flex min-h-[calc(100dvh-56px)] items-center justify-center px-4 py-10">
       <div
         className={`envelope relative w-full max-w-[640px] ${stage === "opening" ? "is-opening" : ""}`}
       >
         {/* envelope body: back + tucked letter + front pocket */}
         <div className="envelope-body relative aspect-[5/6] w-full sm:aspect-[8/5]">
-          <div className="absolute inset-0 z-0 bg-paper shadow-[0_0_0_1px_rgba(23,20,18,0.07),0_18px_40px_-24px_rgba(23,20,18,0.35)]" />
+          <div className="absolute inset-0 z-0 rounded-[6px] bg-paper shadow-[var(--shadow-surface)]" />
 
           <div
             aria-hidden="true"

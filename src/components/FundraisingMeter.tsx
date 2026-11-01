@@ -14,7 +14,7 @@ export async function FundraisingMeter({ className = "" }: { className?: string 
   return (
     <section className={className} aria-label="Fundraising progress">
       <div className="flex items-baseline justify-between gap-4">
-        <div className="font-serif text-[2.1rem] leading-none tracking-tight text-red tabular-nums">
+        <div className="num text-[1.9rem] leading-none text-red">
           {formatUsd(f.raisedUsd)}
         </div>
         <div className="label tabular-nums">

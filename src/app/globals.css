@@ -2,14 +2,20 @@
 
 :root {
   --paper: #ffffff;
-  --desk: #f6f4f0;
-  --ink: #171412;
-  --ink-soft: #7a736c;
-  --rule: #e4e0da;
-  --crease: rgba(23, 20, 18, 0.035);
+  --desk: #fafafa;
+  --ink: #141414;
+  --ink-soft: #6e6e6e;
+  --ink-faint: #a3a3a3;
+  --rule: rgba(20, 20, 20, 0.08);
   --red: #d8121f;
   --red-deep: #a40d18;
   --wax: #c40f22;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Layered ring + lift, instead of a border. */
+  --shadow-surface:
+    0 0 0 1px rgba(20, 20, 20, 0.04),
+    0 1px 2px rgba(20, 20, 20, 0.04),
+    0 12px 32px rgba(20, 20, 20, 0.06);
 }
 
 @theme inline {
@@ -17,6 +23,7 @@
   --color-desk: var(--desk);
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
   --color-rule: var(--rule);
   --color-red: var(--red);
   --color-red-deep: var(--red-deep);
@@ -28,6 +35,7 @@
 
 html {
   background: var(--desk);
+  color-scheme: light;
 }
 
 body {
@@ -36,72 +44,73 @@ body {
   font-family: var(--font-garamond), Georgia, serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  font-feature-settings: "liga", "kern", "onum";
+  font-feature-settings: "liga", "kern";
 }
 
 ::selection {
+  background: rgba(216, 18, 31, 0.18);
+}
+
+/* Eyebrow labels: typewriter, small, tracked. */
+.label {
+  font-family: var(--font-courier), "Courier New", monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Figures: same face as the labels, bigger, tabular. */
+.num {
+  font-family: var(--font-courier), "Courier New", monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* White surface on the light page. */
+.sheet {
+  background: var(--paper);
+  border-radius: 16px;
+  box-shadow: var(--shadow-surface);
+}
+
+/* Pill buttons */
+.pill {
+  display: inline-flex;
+  height: 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  padding: 0 1.25rem;
+  font-family: var(--font-garamond), Georgia, serif;
+  font-size: 1rem;
+  transition:
+    background-color 200ms var(--ease),
+    transform 200ms var(--ease),
+    color 200ms var(--ease);
+}
+
+.pill:active {
+  transform: scale(0.97);
+}
+
+.pill-red {
   background: var(--red);
   color: var(--paper);
 }
 
-/* The desk: warm off-white with a whisper of paper grain and a soft
-   vignette so the white sheet reads as an object sitting on it. */
-.desk {
-  position: relative;
-  isolation: isolate;
+.pill-red:hover {
+  background: var(--red-deep);
 }
 
-.desk::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, 0.9), transparent 60%),
-    radial-gradient(90% 60% at 50% 100%, rgba(23, 20, 18, 0.05), transparent 70%);
+.pill-ghost {
+  box-shadow: 0 0 0 1px var(--rule);
+  color: var(--ink);
 }
 
-.desk::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  opacity: 0.5;
-  mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-}
-
-/* Typewriter labels for everything postal */
-.label {
-  font-family: var(--font-courier), "Courier New", monospace;
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-
-/* The sheet: pure white, hairline edge, a shadow that sits rather than floats,
-   and two faint tri-fold creases where it was folded into the envelope. */
-.sheet {
-  background:
-    linear-gradient(
-      to bottom,
-      transparent calc(33.333% - 1px),
-      var(--crease) calc(33.333% - 1px),
-      var(--crease) calc(33.333% + 1px),
-      transparent calc(33.333% + 1px),
-      transparent calc(66.666% - 1px),
-      var(--crease) calc(66.666% - 1px),
-      var(--crease) calc(66.666% + 1px),
-      transparent calc(66.666% + 1px)
-    ),
-    var(--paper);
-  box-shadow:
-    0 0 0 1px rgba(23, 20, 18, 0.06),
-    0 1px 2px rgba(23, 20, 18, 0.06),
-    0 18px 40px -24px rgba(23, 20, 18, 0.35);
+.pill-ghost:hover {
+  background: rgba(20, 20, 20, 0.03);
 }
 
 /* Red drop cap on the first line of the letter */
@@ -146,7 +155,7 @@ body {
 .flap {
   transform-origin: top center;
   transform-style: preserve-3d;
-  transition: transform 900ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition: transform 900ms var(--ease);
 }
 
 .is-opening .flap {
@@ -155,7 +164,7 @@ body {
 
 .seal {
   transition:
-    transform 500ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 500ms var(--ease),
     opacity 400ms ease;
 }
 
@@ -168,7 +177,7 @@ body {
 .letter-sheet {
   opacity: 0;
   transition:
-    transform 900ms cubic-bezier(0.2, 0.7, 0.2, 1) 300ms,
+    transform 900ms var(--ease) 300ms,
     opacity 200ms ease 250ms;
 }
 
@@ -180,7 +189,7 @@ body {
 .envelope-body {
   transition:
     opacity 500ms ease 700ms,
-    transform 700ms ease 700ms;
+    transform 700ms var(--ease) 700ms;
 }
 
 .is-opening .envelope-body {
@@ -192,7 +201,7 @@ body {
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -201,8 +210,8 @@ body {
 }
 
 .rise {
-  animation: rise 800ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
-  animation-delay: calc(var(--i, 0) * 90ms + 80ms);
+  animation: rise 800ms var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 70ms + 60ms);
 }
 
 @keyframes pulse-ring {
@@ -229,7 +238,8 @@ body {
   .flap,
   .seal,
   .letter-sheet,
-  .envelope-body {
+  .envelope-body,
+  .pill {
     transition-duration: 1ms !important;
     transition-delay: 0ms !important;
   }

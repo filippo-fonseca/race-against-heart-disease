@@ -1,4 +1,5 @@
 import "server-only";
+import { cacheLife } from "next/cache";
 
 /**
  * Live fundraising total from Team IMF's DonorDrive page.
@@ -32,6 +33,9 @@ interface DonorDriveParticipant {
 const DONORDRIVE_BASE = "https://ironmanfoundation.donordrive.com/api";
 
 export async function getFundraising(): Promise<Fundraising> {
+  "use cache";
+  cacheLife({ stale: 300, revalidate: 600, expire: 3600 });
+
   const id = process.env.DONORDRIVE_PARTICIPANT_ID;
   const fallback: Fundraising = {
     raisedUsd: 0,
@@ -47,8 +51,6 @@ export async function getFundraising(): Promise<Fundraising> {
   try {
     const res = await fetch(`${DONORDRIVE_BASE}/participants/${id}`, {
       headers: { accept: "application/json" },
-      // DonorDrive totals move slowly; ten minutes is plenty.
-      next: { revalidate: 600 },
     });
     if (!res.ok) return fallback;
     const p = (await res.json()) as DonorDriveParticipant;

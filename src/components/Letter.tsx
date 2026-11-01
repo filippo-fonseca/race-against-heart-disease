@@ -2,7 +2,8 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { site, stats } from "@/lib/site";
 import { Countdown } from "./Countdown";
-import { Mark, Postmark } from "./marks";
+import { FundraisingMeter } from "./FundraisingMeter";
+import { Mark } from "./marks";
 
 /** Stagger index for the `.rise` animation. */
 const step = (i: number) => ({ "--i": i }) as CSSProperties;
@@ -10,21 +11,15 @@ const step = (i: number) => ({ "--i": i }) as CSSProperties;
 export function Letter() {
   return (
     <article
-      className="sheet relative mx-auto w-full max-w-[1040px] overflow-hidden px-6 py-10 sm:px-12 sm:py-14 lg:px-16 lg:py-16"
+      className="sheet relative mx-auto w-full max-w-[1200px] px-5 py-10 sm:px-12 sm:py-14 lg:px-16 lg:py-16"
       aria-labelledby="letter-title"
     >
       <h1 id="letter-title" className="sr-only">
         {site.name}
       </h1>
 
-      {/* cancellation mark, as if the sheet went through the mail too */}
-      <Postmark
-        className="pointer-events-none absolute -right-6 top-2 hidden w-[300px] rotate-[-8deg] text-red opacity-[0.16] sm:block"
-        aria-hidden="true"
-      />
-
       {/* letterhead */}
-      <header className="rise relative flex items-end justify-between gap-6" style={step(0)}>
+      <header className="rise flex flex-wrap items-end justify-between gap-4" style={step(0)}>
         <div className="flex items-center gap-3">
           <Mark className="h-9 w-9 text-red" />
           <div className="leading-none">
@@ -38,12 +33,16 @@ export function Letter() {
             </div>
           </div>
         </div>
+        <div className="text-right">
+          <div className="label">Letter No. 01</div>
+          <Countdown className="label mt-1.5 block !text-red" />
+        </div>
       </header>
       <div className="rise mt-6 h-px w-full bg-red" style={step(1)} />
 
-      <div className="mt-12 grid gap-12 lg:grid-cols-[1fr_15rem] lg:gap-16">
+      <div className="mt-12 grid gap-12 lg:grid-cols-[minmax(0,1fr)_17rem] lg:gap-20">
         {/* the letter */}
-        <div className="max-w-[640px] space-y-6 font-serif text-[1.2rem] leading-[1.58] text-ink sm:text-[1.28rem]">
+        <div className="max-w-[620px] space-y-6 font-serif text-[1.2rem] leading-[1.6] text-ink sm:text-[1.28rem]">
           <p className="rise dropcap" style={step(2)}>
             For what little attention it gets, I was surprised to find out that
             coronary heart disease is the leading cause of death worldwide.
@@ -105,17 +104,19 @@ export function Letter() {
             </div>
           </div>
 
-          <div className="rise flex flex-col gap-3 pt-6 sm:flex-row sm:items-center" style={step(8)}>
+          <div className="rise flex flex-wrap items-center gap-3 pt-6" style={step(8)}>
             <a
               href={site.donateUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2.5 bg-red px-6 py-3.5 font-serif text-[1.08rem] text-paper shadow-[inset_0_-2px_0_rgba(0,0,0,0.18)] transition-colors hover:bg-red-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red"
+              className="pill pill-red focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red"
             >
               <Mark className="h-5 w-5" knockout={false} />
               Give through {site.charity.team}
             </a>
-            <span className="label sm:ml-2">100% to {site.charity.name}</span>
+            <Link href="/training" className="pill pill-ghost">
+              Follow the training
+            </Link>
           </div>
 
           <p className="rise pt-2 font-serif text-[1.02rem] italic leading-relaxed text-ink-soft" style={step(9)}>
@@ -125,25 +126,19 @@ export function Letter() {
           </p>
         </div>
 
-        {/* marginalia */}
-        <aside
-          className="rise border-t border-rule pt-8 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-1"
-          style={step(4)}
-          aria-labelledby="fine-print"
-        >
-          <div className="flex items-baseline justify-between gap-4 lg:block">
-            <h2 id="fine-print" className="label">
-              Letter No. 01
-            </h2>
-            <Countdown className="label block !text-red lg:mt-1.5" />
-          </div>
-          <dl className="mt-8 grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-3 lg:grid-cols-1 lg:gap-y-9">
+        {/* rail */}
+        <aside className="rise lg:sticky lg:top-24 lg:self-start" style={step(4)} aria-label="Campaign figures">
+          <FundraisingMeter />
+
+          <dl className="mt-10 border-t border-rule">
             {stats.map((s, i) => (
-              <div key={s.value + s.sourceLabel} className="rise" style={step(5 + i)}>
-                <dt className="font-serif text-[2.1rem] leading-none tracking-tight text-red">
-                  {s.value}
-                </dt>
-                <dd className="mt-2 font-serif text-[0.98rem] leading-snug text-ink">
+              <div
+                key={s.value + s.sourceLabel}
+                className="rise grid grid-cols-[6.5rem_1fr] gap-4 border-b border-rule py-4"
+                style={step(5 + i)}
+              >
+                <dt className="num text-[1.35rem] leading-none text-red">{s.value}</dt>
+                <dd className="font-serif text-[0.95rem] leading-snug text-ink-soft">
                   {s.label}{" "}
                   <a
                     href={s.source}
@@ -161,7 +156,7 @@ export function Letter() {
       </div>
 
       {/* the route, drawn to scale */}
-      <section className="rise mt-14" style={step(10)} aria-label="Race distances, to scale">
+      <section className="rise mt-16" style={step(10)} aria-label="Race distances, to scale">
         <div className="flex items-end justify-between">
           <span className="label">The route, to scale</span>
           <span className="label !text-red">{site.race.totalMiles} miles</span>
@@ -174,7 +169,7 @@ export function Letter() {
               style={{ flexGrow: leg.miles }}
             >
               <div className="label !text-ink">{leg.label}</div>
-              <div className="label !text-ink-soft">{leg.miles} mi</div>
+              <div className="label">{leg.miles} mi</div>
             </div>
           ))}
         </div>
@@ -184,12 +179,6 @@ export function Letter() {
         <span className="label">
           Postmarked {site.race.city}, {site.race.stateAbbr} · {site.race.postmarkDate}
         </span>
-        <Link
-          href="/training"
-          className="label underline decoration-rule underline-offset-4 hover:text-red"
-        >
-          The training log →
-        </Link>
         <a
           href={site.repo}
           target="_blank"
