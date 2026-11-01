@@ -9,17 +9,30 @@ type Stage = "closed" | "opening" | "open";
 
 /** How long the flap/sheet choreography runs before we swap to the letter. */
 const OPEN_MS = 1400;
+/** Pause on the sealed envelope before it opens on its own. */
+const AUTO_OPEN_MS = 1600;
 
 export function Envelope() {
   const [stage, setStage] = useState<Stage>("closed");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const open = useCallback(() => {
     if (stage !== "closed") return;
+    if (autoTimer.current) clearTimeout(autoTimer.current);
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     setStage("opening");
     timer.current = setTimeout(() => setStage("open"), reduce ? 50 : OPEN_MS);
   }, [stage]);
+
+  // Open by itself after a beat; pressing the seal just skips the wait.
+  useEffect(() => {
+    if (stage !== "closed") return;
+    autoTimer.current = setTimeout(open, AUTO_OPEN_MS);
+    return () => {
+      if (autoTimer.current) clearTimeout(autoTimer.current);
+    };
+  }, [stage, open]);
 
   useEffect(() => {
     return () => {
@@ -121,7 +134,7 @@ export function Envelope() {
         </div>
 
         <p className="label mt-8 text-center">
-          {stage === "closed" ? "Press the seal to open" : "Opening"}
+          {stage === "closed" ? "Opening your letter" : "Opening"}
         </p>
       </div>
     </div>
