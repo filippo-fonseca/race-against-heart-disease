@@ -10,6 +10,16 @@ export const site = {
   author: {
     name: "Filippo Fonseca",
     url: "https://filippofonseca.com",
+    title: "Yale MechE + EECS '28",
+    role: "Cardiovascular Device and Biomechanics Researcher",
+    /** Shown under the signature. Order is display order. */
+    socials: [
+      { label: "Website", href: "https://filippofonseca.com" },
+      { label: "Strava", href: "https://www.strava.com/athletes/REPLACE" },
+      { label: "GitHub", href: "https://github.com/filippo-fonseca" },
+      { label: "LinkedIn", href: "https://www.linkedin.com/in/REPLACE" },
+      { label: "Instagram", href: "https://www.instagram.com/REPLACE" },
+    ],
   },
   repo: "https://github.com/filippo-fonseca/race-against-heart-disease",
   /** Team IMF personal fundraising page. Set NEXT_PUBLIC_DONATE_URL in Vercel. */

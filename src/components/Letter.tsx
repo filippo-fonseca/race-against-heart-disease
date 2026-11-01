@@ -93,14 +93,26 @@ export function Letter() {
             <div className="font-hand mt-1 text-[2.8rem] leading-none text-red">
               Filippo
             </div>
-            <div className="label mt-3">
-              {site.author.name} ·{" "}
-              <a
-                href={site.author.url}
-                className="underline decoration-rule underline-offset-4 hover:text-red"
-              >
-                filippofonseca.com
-              </a>
+            <div className="mt-3 font-serif text-[1rem] leading-snug text-ink">
+              {site.author.name}
+            </div>
+            <div className="label mt-1 !normal-case !tracking-normal !text-ink-soft !text-[0.8rem]">
+              {site.author.title} · {site.author.role}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
+              {site.author.socials
+                .filter((s) => !s.href.includes("REPLACE"))
+                .map((s) => (
+                  <a
+                    key={s.label}
+                    href={s.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="label underline decoration-rule underline-offset-4 hover:text-red"
+                  >
+                    {s.label} ↗
+                  </a>
+                ))}
             </div>
           </div>
 
