@@ -61,8 +61,7 @@ export function Letter() {
         </p>
 
         <p>
-          Here is what I hope this letter does. If you are able to give, every
-          dollar goes to {site.charity.name}. And whether or not you give, I
+          If you are able to give, every dollar goes to {site.charity.name}. And whether or not you give, I
           hope you will take a child you love outside this week and move with
           them. It is among the best gifts you can give a heart, and it costs
           nothing at all.
