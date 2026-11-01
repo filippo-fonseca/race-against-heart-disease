@@ -111,7 +111,7 @@ export function Letter() {
               rel="noopener noreferrer"
               className="pill pill-red focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red"
             >
-              <Mark className="h-5 w-5" knockout={false} />
+              <Mark className="h-5 w-5" />
               Give through {site.charity.team}
             </a>
             <Link href="/training" className="pill pill-ghost">

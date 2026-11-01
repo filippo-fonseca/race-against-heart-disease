@@ -16,7 +16,7 @@ export function SiteHeader({ current }: { current: Current }) {
     <header className="sticky top-0 z-50 border-b border-rule bg-desk/85 backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-[1200px] items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2.5" aria-label={site.name}>
-          <Mark className="h-6 w-6 text-red" knockout={false} />
+          <Mark className="h-6 w-6 text-red" />
           <span className="hidden font-serif text-[15px] tracking-tight sm:inline">{site.name}</span>
         </Link>
 

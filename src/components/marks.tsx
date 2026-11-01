@@ -3,45 +3,15 @@ import { site } from "@/lib/site";
 type SvgProps = React.SVGProps<SVGSVGElement>;
 
 /**
- * Campaign mark: a heart outline with a single ECG beat running through it.
- * The beat is the "race"; the heart is the "against".
+ * Campaign mark: a solid Y with a heart cut out of the junction. The hole is
+ * a true knockout (evenodd), so the mark sits on any ground in one color.
  */
-export function Mark({
-  className,
-  knockout = true,
-  ...rest
-}: SvgProps & { knockout?: boolean }) {
+export const MARK_PATH = "M6 6H21L32 23L43 6H58L39 34V59H25V34Z M32 42C32 42 27 38.4 27 34.4C27 32 28.7 30.5 30.5 30.5C31.2 30.5 31.7 31 32 31.8C32.3 31 32.8 30.5 33.5 30.5C35.3 30.5 37 32 37 34.4C37 38.4 32 42 32 42Z";
+
+export function Mark({ className, ...rest }: SvgProps) {
   return (
-    <svg
-      viewBox="0 0 64 64"
-      fill="none"
-      aria-hidden="true"
-      className={className}
-      {...rest}
-    >
-      <path
-        d="M32 56C32 56 8 40.5 8 24.5C8 15.4 14.8 9 23 9C27.6 9 31 11.6 32 15.2C33 11.6 36.4 9 41 9C49.2 9 56 15.4 56 24.5C56 40.5 32 56 32 56Z"
-        stroke="currentColor"
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-      {/* knock the heart outline out where the beat crosses it (paper bg only) */}
-      {knockout && (
-        <path
-          d="M2 32H21L26 22L31.5 44L37 18L41 36L44 32H62"
-          stroke="var(--paper)"
-          strokeWidth="9"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      )}
-      <path
-        d="M2 32H21L26 22L31.5 44L37 18L41 36L44 32H62"
-        stroke="currentColor"
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg viewBox="0 0 64 64" aria-hidden="true" className={className} {...rest}>
+      <path d={MARK_PATH} fill="currentColor" fillRule="evenodd" />
     </svg>
   );
 }
@@ -186,23 +156,7 @@ export function Seal({ className = "" }: { className?: string }) {
           strokeOpacity="0.35"
           strokeWidth="1.2"
         />
-        <g transform="translate(26 26) scale(0.75)" color="#fff">
-          <path
-            d="M32 56C32 56 8 40.5 8 24.5C8 15.4 14.8 9 23 9C27.6 9 31 11.6 32 15.2C33 11.6 36.4 9 41 9C49.2 9 56 15.4 56 24.5C56 40.5 32 56 32 56Z"
-            stroke="currentColor"
-            strokeWidth="3.2"
-            strokeLinejoin="round"
-            fill="none"
-          />
-          <path
-            d="M2 32H21L26 22L31.5 44L37 18L41 36L44 32H62"
-            stroke="currentColor"
-            strokeWidth="3.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-          />
-        </g>
+        <path transform="translate(18 17) scale(0.44)" d={MARK_PATH} fill="#fff" fillRule="evenodd" />
       </svg>
     </span>
   );
