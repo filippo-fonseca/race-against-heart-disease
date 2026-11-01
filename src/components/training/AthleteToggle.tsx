@@ -9,7 +9,7 @@ export function AthleteToggle({ athletes, selected }: { athletes: Athlete[]; sel
     { value: "both", text: "Both" },
   ];
   return (
-    <nav aria-label="Athlete" className="flex items-baseline gap-4">
+    <nav aria-label="Athlete" className="inline-flex items-center rounded-full p-0.5 shadow-[0_0_0_1px_var(--rule)]">
       {options.map((o) => {
         const active = o.value === selected;
         return (
@@ -17,10 +17,8 @@ export function AthleteToggle({ athletes, selected }: { athletes: Athlete[]; sel
             key={o.value}
             href={o.value === "both" ? "/training" : `/training?athlete=${o.value}`}
             aria-current={active ? "page" : undefined}
-            className={`label underline-offset-4 ${
-              active
-                ? "!text-red underline decoration-red"
-                : "underline decoration-rule hover:!text-red hover:decoration-red"
+            className={`label inline-flex h-7 items-center rounded-full px-3 !tracking-[0.06em] transition-colors ${
+              active ? "bg-ink !text-paper" : "hover:!text-ink"
             }`}
           >
             {o.text}

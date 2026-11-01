@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense, type CSSProperties } from "react";
 import { Mark } from "@/components/marks";
+import { SiteHeader } from "@/components/SiteHeader";
 import { AthleteToggle } from "@/components/training/AthleteToggle";
 import { ChartRail } from "@/components/training/ChartRail";
 import { Log } from "@/components/training/Log";
@@ -91,20 +91,15 @@ function Header({ athletes, selected }: { athletes: Athlete[]; selected: Athlete
     <>
       <header className="rise flex flex-wrap items-end justify-between gap-x-8 gap-y-4" style={step(0)}>
         <div>
-          <Link href="/" className="label underline decoration-rule underline-offset-4 hover:text-red">
-            ← Back to the letter
-          </Link>
-          <h1 className="mt-4 flex items-center gap-3 font-serif text-[2.4rem] leading-none tracking-tight sm:text-[3rem]">
+          <h1 className="flex items-center gap-3 font-serif text-[2.2rem] leading-none tracking-tight sm:text-[2.8rem]">
             <Mark className="h-8 w-8 text-red sm:h-9 sm:w-9" />
             The training
           </h1>
-        </div>
-        <div className="flex flex-col items-start gap-2 sm:items-end">
-          <span className="label">
+          <div className="label mt-3">
             {site.race.name} · {site.race.dateLabel}
-          </span>
-          {selected ? <AthleteToggle athletes={athletes} selected={selected} /> : <span className="label">&nbsp;</span>}
+          </div>
         </div>
+        {selected ? <AthleteToggle athletes={athletes} selected={selected} /> : <span className="label">&nbsp;</span>}
       </header>
       <div className="rise mt-6 h-px w-full bg-red" style={step(1)} />
     </>
@@ -129,13 +124,8 @@ async function Body({ searchParams }: { searchParams: Promise<SearchParams> }) {
         <Numerals summaries={summaries} daysToRace={daysToRace(today)} />
       </div>
 
-      <p className="rise mt-8 max-w-[640px] font-serif text-[1.15rem] leading-[1.55] text-ink" style={step(2)}>
-        Every session since {fmtLong(PLAN_START)}, pulled from Strava as it happens and set against the program.{" "}
-        {selected.length > 1 ? `${selected.map((a) => a.name).join(" and ")} train together.` : `${selected[0]?.name ?? ""} is training with ${allAthletes.find((a) => a.slug !== selected[0]?.slug)?.name ?? "a partner"}.`}{" "}
-        The charts follow the week you are reading.
-      </p>
       {emptyNote ? (
-        <p className="rise mt-3 label" style={step(2)}>
+        <p className="rise mt-6 label" style={step(2)}>
           {emptyNote}
         </p>
       ) : null}
@@ -171,7 +161,9 @@ async function Body({ searchParams }: { searchParams: Promise<SearchParams> }) {
 
 export default function TrainingPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   return (
-    <div id="training-root" className="training px-4 py-6 sm:px-8 sm:py-12">
+    <>
+      <SiteHeader current="training" />
+      <div id="training-root" className="training px-4 py-6 sm:px-6 sm:py-10">
       <article className="sheet relative mx-auto w-full max-w-[1200px] px-6 py-10 sm:px-12 sm:py-14 lg:px-16 lg:py-16">
         <Suspense fallback={<Header athletes={DEFAULT_ATHLETES} selected={null} />}>
           <Body searchParams={searchParams} />
@@ -180,11 +172,17 @@ export default function TrainingPage({ searchParams }: { searchParams: Promise<S
           <span className="label">
             Postmarked {site.race.city}, {site.race.stateAbbr} · {site.race.postmarkDate}
           </span>
-          <Link href="/" className="label underline decoration-rule underline-offset-4 hover:text-red">
-            The letter
-          </Link>
+          <a
+            href={site.repo}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="label underline decoration-rule underline-offset-4 hover:text-red"
+          >
+            Source on GitHub ↗
+          </a>
         </footer>
       </article>
-    </div>
+      </div>
+    </>
   );
 }
