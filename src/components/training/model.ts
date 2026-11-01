@@ -85,7 +85,7 @@ export function groupByWeek(
   matches: DayMatch[],
   weekNumberOf: (date: string) => number,
   weekStartOf: (date: string) => string,
-  phaseForWeek: (week: number) => string,
+  phaseForWeek: (week: number) => string | null,
   athleteCount: number,
 ): WeekGroup[] {
   const weeks = new Map<number, WeekGroup>();

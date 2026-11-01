@@ -42,7 +42,11 @@ export function ChartRail({
       <div className="flex items-baseline justify-between border-b border-rule pb-2 lg:border-0 lg:pb-0">
         <span className="label">Reading</span>
         <span className="label !text-ink" data-week-readout>
-          Week {cal.currentWeek} · this week
+          {cal.currentWeek < 1
+            ? "Week 1 · upcoming"
+            : cal.currentWeek > cal.totalWeeks
+              ? `Week ${cal.totalWeeks} · race week`
+              : `Week ${cal.currentWeek} · this week`}
         </span>
       </div>
       {/* `relative` so the charts' sr-only summaries (absolute) are clipped by this strip rather than escaping to the sheet */}
