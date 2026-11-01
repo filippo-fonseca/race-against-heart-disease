@@ -86,6 +86,8 @@ One long page. Left: the log as prose, one entry per day, newest first, each wit
 
 ## Setup
 
+Local scripts need Node 22 or newer (`.nvmrc` says 22): supabase-js throws on Node 20 because it has no native WebSocket. Vercel builds on Node 26 and is unaffected.
+
 Data lives in the shared Supabase project `hyperpolymath-v3` (ref `mwpwnyhtzkabriohwlbq`), in its own `training` schema. The server client is pinned to that schema, so `.from("activities")` resolves to `training.activities`.
 
 1. **Database.** Apply `supabase/migrations/0001_training.sql` (SQL editor or `supabase db push`). PostgREST must also expose the schema: either add `training` under Dashboard > Settings > API > Exposed schemas, or rely on the `alter role authenticator set pgrst.db_schemas = 'public, graphql_public, training'; notify pgrst, 'reload config';` statement at the end of the migration.
