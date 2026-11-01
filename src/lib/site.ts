@@ -30,7 +30,7 @@ export const site = {
     date: new Date("2027-04-04T07:00:00-05:00"),
     dateLabel: "April 4, 2027",
     postmarkDate: "APR 04 2027",
-    goalTime: "sub-5:15",
+    goalTime: "sub-5:00",
     legs: [
       { label: "Swim", miles: 1.2, km: 1.9 },
       { label: "Bike", miles: 56, km: 90 },
