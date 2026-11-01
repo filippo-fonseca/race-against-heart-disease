@@ -54,7 +54,8 @@ grant usage on schema training to service_role;
 grant all on all tables in schema training to service_role;
 alter default privileges in schema training grant all on tables to service_role;
 
--- PostgREST only serves schemas it is told about. This is the same as adding
--- `training` under Dashboard > Settings > API > Exposed schemas.
-alter role authenticator set pgrst.db_schemas = 'public, graphql_public, training';
-notify pgrst, 'reload config';
+-- PostgREST only serves schemas it is told about. Add `training` under
+-- Dashboard > Settings > API > Exposed schemas (done for hyperpolymath-v3 on
+-- 2026-11-01 via the Management API). Not set here: an in-database
+-- `alter role authenticator set pgrst.db_schemas` would override the
+-- dashboard value for every schema on this shared project.
