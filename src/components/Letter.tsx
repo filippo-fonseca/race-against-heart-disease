@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import Link from "next/link";
 import { site, stats } from "@/lib/site";
 import { Countdown } from "./Countdown";
 import { Mark, Postmark } from "./marks";
@@ -183,6 +184,12 @@ export function Letter() {
         <span className="label">
           Postmarked {site.race.city}, {site.race.stateAbbr} · {site.race.postmarkDate}
         </span>
+        <Link
+          href="/training"
+          className="label underline decoration-rule underline-offset-4 hover:text-red"
+        >
+          The training log →
+        </Link>
         <a
           href={site.repo}
           target="_blank"

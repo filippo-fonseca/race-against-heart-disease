@@ -1,0 +1,59 @@
+/* Training log: chart typography and the scroll-spy highlights.
+   Scoped under .training so nothing leaks into the letter. */
+
+.training .chart svg text {
+  font-family: var(--font-courier), "Courier New", monospace;
+  fill: var(--ink-soft);
+  letter-spacing: 0.04em;
+}
+
+/* Week marks start hidden; the spy reveals the one being read. */
+.training .wk-mark,
+.training .wk-band,
+.training .wk-hr {
+  opacity: 0;
+  transition: opacity 240ms ease;
+}
+
+.training .wk-mark[data-active="true"],
+.training .wk-band[data-active="true"],
+.training .wk-hr[data-active="true"] {
+  opacity: 1;
+}
+
+/* Weekly bars dim around the active one once the spy has a week. */
+.training .wk-bar {
+  transition: opacity 240ms ease;
+}
+
+.training[data-active-week] .wk-bar {
+  opacity: 0.38;
+}
+
+.training[data-active-week] .wk-bar[data-active="true"] {
+  opacity: 1;
+}
+
+/* Tabular numerals wherever Courier carries a figure. */
+.training .num {
+  font-family: var(--font-courier), "Courier New", monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Horizontal chart strip on small screens: snap per chart, hide the scrollbar. */
+.training .rail-strip {
+  scrollbar-width: none;
+}
+
+.training .rail-strip::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .training .wk-mark,
+  .training .wk-band,
+  .training .wk-hr,
+  .training .wk-bar {
+    transition: none;
+  }
+}
