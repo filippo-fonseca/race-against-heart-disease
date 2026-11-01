@@ -46,20 +46,20 @@ export function Envelope() {
 
   if (stage === "open") {
     return (
-      <div className="px-4 py-10 sm:py-16">
+      <div className="px-4 py-6 sm:px-8 sm:py-12">
         <Letter />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-72px)] items-center justify-center px-4 py-10">
+    <div className="flex min-h-[calc(100dvh-64px)] items-center justify-center px-4 py-10">
       <div
         className={`envelope relative w-full max-w-[640px] ${stage === "opening" ? "is-opening" : ""}`}
       >
         {/* envelope body: back + tucked letter + front pocket */}
         <div className="envelope-body relative aspect-[5/6] w-full sm:aspect-[8/5]">
-          <div className="absolute inset-0 z-0 border border-rule bg-paper" />
+          <div className="absolute inset-0 z-0 bg-paper shadow-[0_0_0_1px_rgba(23,20,18,0.07),0_18px_40px_-24px_rgba(23,20,18,0.35)]" />
 
           <div
             aria-hidden="true"
@@ -73,7 +73,7 @@ export function Envelope() {
             </div>
           </div>
 
-          <div className="absolute inset-x-0 bottom-0 z-20 h-[55%] border border-rule bg-paper shadow-[0_-1px_0_rgba(0,0,0,0.03)]">
+          <div className="absolute inset-x-0 bottom-0 z-20 h-[55%] border-t border-rule bg-paper">
             {/* return address */}
             <div className="label absolute bottom-[10%] right-[6%] text-right !text-ink-soft leading-[1.7] sm:bottom-[12%] sm:right-[5%]">
               From {site.author.name}

@@ -134,7 +134,7 @@ export function Postmark({ className = "" }: { className?: string }) {
         ))}
       </g>
       <text
-        fontFamily="var(--font-geist-mono), monospace"
+        fontFamily="var(--font-courier), monospace"
         fontSize="8.5"
         letterSpacing="1.6"
         fill="currentColor"
@@ -145,7 +145,7 @@ export function Postmark({ className = "" }: { className?: string }) {
       </text>
       <g
         fill="currentColor"
-        fontFamily="var(--font-geist-mono), monospace"
+        fontFamily="var(--font-courier), monospace"
         textAnchor="middle"
       >
         <text x="60" y="55" fontSize="9" letterSpacing="1">

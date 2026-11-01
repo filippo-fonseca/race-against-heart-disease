@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Caveat, EB_Garamond, Geist_Mono } from "next/font/google";
+import { Caveat, Courier_Prime, EB_Garamond } from "next/font/google";
 import { site } from "@/lib/site";
 import "./globals.css";
 
@@ -9,9 +9,10 @@ const garamond = EB_Garamond({
   style: ["normal", "italic"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const courier = Courier_Prime({
+  variable: "--font-courier",
   subsets: ["latin"],
+  weight: ["400", "700"],
 });
 
 const caveat = Caveat({
@@ -58,9 +59,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${garamond.variable} ${geistMono.variable} ${caveat.variable} h-full antialiased`}
+      className={`${garamond.variable} ${courier.variable} ${caveat.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="desk min-h-full flex flex-col">{children}</body>
     </html>
   );
 }
