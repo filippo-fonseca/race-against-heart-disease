@@ -77,3 +77,16 @@ Webhook subscription is created once with `npm run strava:subscribe` (needs the 
 ## UI direction
 
 One long page. Left: the log as prose, one entry per day, newest first, each with the planned session, what actually happened, Strava photos, and a one-line auto-generated note ("Planned 60 min Z2 ride. Rode 62 min, 145 bpm avg."). Right, sticky: a rail of charts that update to the week/day being scrolled past (AI 2027 pattern): calendar heatmap since Nov 2, weekly hours by sport vs plan, cumulative distance toward 70.3-multiples, HR distribution. Sparse, technical, monospace numerals, white and red, hairline rules, no cards. Top: big numerals (days to race, total hours, sessions, streak) and an athlete toggle.
+
+## Setup
+
+Data lives in the shared Supabase project `hyperpolymath-v3` (ref `mwpwnyhtzkabriohwlbq`), in its own `training` schema. The server client is pinned to that schema, so `.from("activities")` resolves to `training.activities`.
+
+1. **Database.** Apply `supabase/migrations/0001_training.sql` (SQL editor or `supabase db push`). PostgREST must also expose the schema: either add `training` under Dashboard > Settings > API > Exposed schemas, or rely on the `alter role authenticator set pgrst.db_schemas = 'public, graphql_public, training'; notify pgrst, 'reload config';` statement at the end of the migration.
+2. **Strava app.** Create one at strava.com/settings/api. Set Authorization Callback Domain to `localhost` (the auth script redirects to `http://localhost:4567/callback`). Copy the client id and secret.
+3. **Env.** Put the variables from the Environment section above in `.env.local` locally and in the Vercel project. `STRAVA_WEBHOOK_VERIFY_TOKEN` and `CRON_SECRET` are random strings you choose; Vercel sends `CRON_SECRET` to the cron route automatically once it is set. `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` come from the Supabase project settings.
+4. **Authorize each athlete** (one time): `npm run strava:auth -- --athlete filippo`, then the same for `amir`. Each run opens the consent page and writes the athlete row with tokens.
+5. **Backfill**: `npm run strava:backfill -- --athlete filippo --since 2026-11-02` (omit `--athlete` for both). Re-run if it reports the budget was exhausted.
+6. **Webhook** (after the site is deployed with the env above): `npm run strava:subscribe -- --callback https://raceagainstheartdisease.com/api/strava/webhook`. `--list` shows the current subscription and `--delete <id>` removes it. The cron in `vercel.json` hits `/api/strava/sync` every 30 minutes regardless, so a missed webhook event is reconciled within the half hour.
+
+Scripts run through `tsx --conditions=react-server` so the `server-only` marker in `db.ts` is inert outside Next; they read `.env.local` via dotenv.

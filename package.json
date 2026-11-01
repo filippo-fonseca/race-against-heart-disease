@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "strava:auth": "tsx --conditions=react-server scripts/strava-auth.ts",
+    "strava:backfill": "tsx --conditions=react-server scripts/strava-backfill.ts",
+    "strava:subscribe": "tsx --conditions=react-server scripts/strava-subscribe.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.109.0",
