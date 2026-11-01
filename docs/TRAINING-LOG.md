@@ -6,7 +6,7 @@ The `/training` page is an automated daily log of the build toward IRONMAN 70.3 
 
 ```
 Strava ──webhook──▶ /api/strava/webhook ──▶ fetch activity detail (+photos) ──▶ Supabase
-Strava ◀──backfill── /api/strava/sync (Vercel cron, every 30 min) ─────────────▶ Supabase
+Strava ◀──backfill── /api/strava/sync (Vercel cron, daily 06:00 UTC; Hobby plan allows daily only, webhooks cover real time) ─────────────▶ Supabase
 Supabase ──▶ src/lib/training/queries.ts ──▶ /training (server components, ISR 5 min)
 data/plan.json ──▶ src/lib/training/plan.ts ──▶ matcher ──▶ /training
 ```
