@@ -9,17 +9,48 @@ export const site = {
   url: "https://raceagainstheartdisease.com",
   author: {
     name: "Filippo Fonseca",
+    age: 20,
     url: "https://filippofonseca.com",
     title: "Yale MechE + EECS '28",
     role: "Cardiovascular Device and Biomechanics Researcher",
+    /** Profile picture in /public. */
+    avatar: "/filippo.jpg",
+    /** One-line bio under the headline. */
+    bio: "Cardiovascular and Biomechanics Engineer / Researcher at Yale",
+    /**
+     * The longer "About me" under the byline, one string per paragraph.
+     * Draft: rewrite freely, it is yours to ramble in.
+     */
+    about: [
+      "Endurance runner turned triathlete. I came up through distance running (most recently a 1:23 half marathon) and this season I am adding the swim and the bike for my first 70.3.",
+      "Day to day I study Mechanical Engineering and EECS at Yale and do research on cardiovascular devices and biomechanics, which is a big part of why this cause is personal: I spend my days on what happens when hearts fail, and I would rather more of them never get there.",
+    ],
+    /**
+     * Strava widget (strava.com/athletes/<id>, Share your activities). Both
+     * values come from the embed code Strava gives you; the hero shows the
+     * activity-summary widget once both are set.
+     */
+    strava: {
+      athleteId: process.env.NEXT_PUBLIC_STRAVA_ATHLETE_ID ?? null,
+      widgetHash: process.env.NEXT_PUBLIC_STRAVA_WIDGET_HASH ?? null,
+    } as { athleteId: string | null; widgetHash: string | null },
     /** Shown under the signature. Order is display order. */
     socials: [
-      { label: "Website", href: "https://filippofonseca.com" },
-      { label: "Strava", href: "https://www.strava.com/athletes/REPLACE" },
-      { label: "GitHub", href: "https://github.com/filippo-fonseca" },
-      { label: "LinkedIn", href: "https://www.linkedin.com/in/REPLACE" },
-      { label: "Instagram", href: "https://www.instagram.com/REPLACE" },
-    ],
+      { kind: "website", label: "Website", href: "https://filippofonseca.com" },
+      {
+        kind: "strava",
+        label: "Strava",
+        href: `https://www.strava.com/athletes/${process.env.NEXT_PUBLIC_STRAVA_ATHLETE_ID ?? "REPLACE"}`,
+      },
+      { kind: "linkedin", label: "LinkedIn", href: "https://linkedin.com/in/filippofonseca" },
+      { kind: "x", label: "X", href: "https://x.com/FilippoFonseca" },
+      { kind: "github", label: "GitHub", href: "https://github.com/filippo-fonseca" },
+      {
+        kind: "scholar",
+        label: "Google Scholar",
+        href: "https://scholar.google.com/citations?user=gIz1jtwAAAAJ",
+      },
+    ] as { kind: "website" | "strava" | "github" | "linkedin" | "x" | "scholar"; label: string; href: string }[],
   },
   repo: "https://github.com/filippo-fonseca/race-against-heart-disease",
   /** Team IMF personal fundraising page. Set NEXT_PUBLIC_DONATE_URL in Vercel. */
