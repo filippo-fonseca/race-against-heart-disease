@@ -13,7 +13,7 @@ One page. A stamped, postmarked envelope held shut by a red wax seal. Press the 
 - White and red. Serif body (EB Garamond), mono labels (Geist Mono), handwritten signature (Caveat).
 - No tracking, no cookies, no analytics beyond whatever the host provides.
 - Respects `prefers-reduced-motion`.
-- The IRONMAN name and "70.3" appear in type only. The M-dot is a registered trademark of World Triathlon Corporation and is not reproduced here.
+- The IRONMAN wordmark in the hero (`public/ironman-logo.png`) is a registered trademark of World Triathlon Corporation, shown because this page fundraises as part of Team IRONMAN Foundation. It is not used as this site's own brand.
 
 ## Run it
 
