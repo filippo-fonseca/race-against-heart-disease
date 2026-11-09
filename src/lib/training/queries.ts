@@ -62,6 +62,9 @@ export async function listAthletes(): Promise<Athlete[]> {
   return ((data ?? []) as unknown as AthleteRow[]).map(toAthlete);
 }
 
-/** Everything except `raw`, which can be large and is never shown. */
+/**
+ * Everything except `raw`, which can be large and is never shown, plus its
+ * `utc_offset` so start times can be shown in local time (see toLocalStart).
+ */
 const ACTIVITY_COLUMNS =
-  "id, athlete_slug, sport, strava_sport_type, name, description, start_local, date, moving_time_sec, elapsed_time_sec, distance_m, elevation_gain_m, avg_hr, max_hr, avg_watts, effort, photos, detailed, updated_at";
+  "id, athlete_slug, sport, strava_sport_type, name, description, start_local, date, moving_time_sec, elapsed_time_sec, distance_m, elevation_gain_m, avg_hr, max_hr, avg_watts, effort, photos, detailed, updated_at, utc_offset:raw->utc_offset";
