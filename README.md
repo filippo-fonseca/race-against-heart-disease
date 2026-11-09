@@ -31,7 +31,7 @@ NEXT_PUBLIC_DONATE_URL=https://ironmanfoundation.donordrive.com/participant/...
 
 Everything editable (copy, dates, links, the cited stats) lives in [`src/lib/site.ts`](src/lib/site.ts).
 
-The training log and its backend are documented in [`docs/TRAINING-LOG.md`](docs/TRAINING-LOG.md) and [`docs/ADMIN.md`](docs/ADMIN.md). Strava is the single source of truth for activities: the site mirrors it one way (see the data flow in `docs/TRAINING-LOG.md`). A remote MCP server at `/api/mcp` lets a Grok bot manage the plan and photos, and create or edit activities through the Strava API: see [`docs/MCP.md`](docs/MCP.md) and the bot's system prompt in [`docs/GROK-BOT-PROMPT.md`](docs/GROK-BOT-PROMPT.md).
+The training log and its backend are documented in [`docs/TRAINING-LOG.md`](docs/TRAINING-LOG.md) and [`docs/ADMIN.md`](docs/ADMIN.md). A remote MCP server at `/api/mcp` lets a Grok bot manage the plan, activities and photos: see [`docs/MCP.md`](docs/MCP.md) and the bot's system prompt in [`docs/GROK-BOT-PROMPT.md`](docs/GROK-BOT-PROMPT.md).
 
 ## Sources
 
