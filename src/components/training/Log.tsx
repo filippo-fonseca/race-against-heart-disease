@@ -3,6 +3,7 @@ import type { Activity, Athlete, DayMatch, PlanSession } from "@/lib/training/ty
 import { fmtClock, fmtDay, fmtHM, fmtKm, fmtWeekRange, sportLabel, sportVerb } from "./format";
 import type { WeekGroup } from "./model";
 import { Photos } from "./Photos";
+import { SportPill } from "./SportPill";
 import { StatusGlyph } from "./StatusGlyph";
 
 const step = (i: number) => ({ "--i": i }) as CSSProperties;
@@ -51,7 +52,6 @@ function PlannedLine({ p, status }: { p: PlanSession; status: DayMatch["status"]
 
 function ActualLine({ a }: { a: Activity }) {
   const bits = [
-    sportLabel[a.sport],
     fmtClock(a.startLocal),
     fmtHM(a.movingTimeSec),
     a.distanceM > 0 ? `${fmtKm(a.distanceM, a.sport)} km` : null,
@@ -60,7 +60,8 @@ function ActualLine({ a }: { a: Activity }) {
   ].filter(Boolean);
   return (
     <li>
-      <div className="num text-[0.82rem] text-ink">
+      <div className="num flex flex-wrap items-center gap-x-2 text-[0.82rem] text-ink">
+        <SportPill sport={a.sport} />
         {bits.join(" · ")}
         <span className="ml-2 text-ink-soft">{a.name}</span>
       </div>

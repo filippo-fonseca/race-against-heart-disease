@@ -1,4 +1,5 @@
-import { fmtClock, fmtHM, fmtKm, sportLabel } from "@/components/training/format";
+import { fmtClock, fmtHM, fmtKm } from "@/components/training/format";
+import { SportPill } from "@/components/training/SportPill";
 import type { Activity } from "@/lib/training/types";
 import { ResyncButton } from "./ResyncButton";
 
@@ -40,7 +41,9 @@ export function Activities({ rows, error }: { rows: Activity[]; error: string | 
                   <td className={cell}>{a.date}</td>
                   <td className={`${cell} text-ink-soft`}>{fmtClock(a.startLocal)}</td>
                   <td className={cell}>{a.athlete}</td>
-                  <td className={cell}>{sportLabel[a.sport]}</td>
+                  <td className={cell}>
+                    <SportPill sport={a.sport} />
+                  </td>
                   <td className={`${cell} !whitespace-normal min-w-[12rem] text-ink`}>{a.name}</td>
                   <td className={cell}>{fmtHM(a.movingTimeSec)}</td>
                   <td className={cell}>{a.distanceM > 0 ? fmtKm(a.distanceM, a.sport) : ""}</td>

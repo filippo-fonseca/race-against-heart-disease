@@ -7,6 +7,7 @@ import type {
   AthleteSlug,
   Sport,
 } from "./types";
+import { bucketOf, toSport } from "./types";
 
 /**
  * Server-only Supabase access for the training log. Uses the service-role key,
@@ -106,7 +107,9 @@ export function toActivity(row: ActivityRow): Activity {
   return {
     id: String(row.id),
     athlete: row.athlete_slug,
-    sport: row.sport,
+    // Recomputed from the Strava type so rows stored under older bucketing
+    // (e.g. HIIT saved as "other") read correctly without a resync.
+    sport: row.strava_sport_type ? toSport(row.strava_sport_type) : bucketOf(row.sport),
     stravaSportType: row.strava_sport_type,
     name: row.name,
     description: row.description,

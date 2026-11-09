@@ -1,13 +1,16 @@
 import type { ReactNode } from "react";
 import type { Sport } from "@/lib/training/types";
 
-/** Sport encoding within the palette. Red is reserved for the bike (the longest leg). */
+/**
+ * Sport encoding within the palette. Red is reserved for the bike (the longest
+ * leg). LIFT is a warm ochre so it reads on white as a line, a bar and a pill.
+ */
 export const sportFill: Record<Sport, string> = {
   swim: "#b4ada5",
   bike: "var(--red)",
   run: "var(--ink)",
-  strength: "#dcd7d0",
-  other: "#ebe7e1",
+  strength: "#c08a3e",
+  other: "#c08a3e",
 };
 
 /** Sports that get their own layer in the charts, in stack order (bottom first). */

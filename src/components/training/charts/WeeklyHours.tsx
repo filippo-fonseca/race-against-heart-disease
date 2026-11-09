@@ -95,7 +95,7 @@ export function WeeklyHours({ slots, currentWeek }: { slots: WeekSlot[]; current
           { sport: "swim", text: "Swim" },
           { sport: "bike", text: "Bike" },
           { sport: "run", text: "Run" },
-          { sport: "strength", text: "Strength" },
+          { sport: "strength", text: "Lift" },
         ]}
       />
     </ChartFrame>

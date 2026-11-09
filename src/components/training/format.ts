@@ -1,4 +1,4 @@
-import type { Sport } from "@/lib/training/types";
+import type { Sport, SportBucket } from "@/lib/training/types";
 
 /** "8h 40m", "40m", or "0m". */
 export function fmtHM(sec: number): string {
@@ -77,9 +77,18 @@ export const sportLabel: Record<Sport, string> = {
   swim: "Swim",
   bike: "Bike",
   run: "Run",
-  strength: "Strength",
-  other: "Other",
+  strength: "Lift",
+  other: "Lift",
 };
+
+/**
+ * One sport's total the way the site reports it: swims and runs by distance,
+ * rides and lifts by time (most rides are indoor, with no distance).
+ */
+export function fmtSportTotal(sport: SportBucket, t: { timeSec: number; distanceM: number }): string {
+  if (sport === "swim" || sport === "run") return `${fmtKm(t.distanceM, sport)} km`;
+  return fmtHM(t.timeSec);
+}
 
 /** Past-tense verb for the auto note. */
 export const sportVerb: Record<Sport, string> = {

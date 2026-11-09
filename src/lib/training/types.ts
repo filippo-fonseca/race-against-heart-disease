@@ -3,7 +3,27 @@
  * and the UI code against these types. Change here first, then everywhere.
  */
 
-export type Sport = "swim" | "bike" | "run" | "strength" | "other";
+/**
+ * The four buckets the site shows, as pills: SWIM, BIKE, RUN and LIFT.
+ * LIFT is `strength` internally and covers HIIT, weights, and anything that
+ * is not a swim, a ride or a run.
+ */
+export type SportBucket = "swim" | "bike" | "run" | "strength";
+
+/**
+ * Sport on an activity. "other" is a legacy value: `toSport` never returns
+ * it and rows are re-bucketed on read (db.ts), but the type keeps it so older
+ * callers still compile. Use `bucketOf` before keying anything by sport.
+ */
+export type Sport = SportBucket | "other";
+
+/** The buckets in display and stack order. */
+export const SPORTS: readonly SportBucket[] = ["swim", "bike", "run", "strength"];
+
+/** Collapse the legacy "other" into LIFT. */
+export function bucketOf(sport: Sport): SportBucket {
+  return sport === "other" ? "strength" : sport;
+}
 
 export type AthleteSlug = "filippo" | "emir";
 
@@ -100,19 +120,16 @@ export interface TrainingSummary {
   bySport: Record<Sport, { timeSec: number; distanceM: number; count: number }>;
 }
 
-/** Map a Strava sport_type onto our five buckets. */
-export function toSport(stravaSportType: string): Sport {
+/**
+ * Map a Strava sport_type onto the four buckets. Any ride (outdoor, trainer,
+ * VirtualRide, e-bike, gravel, mountain) is BIKE; any run (incl. trail and
+ * virtual) is RUN; any swim is SWIM. Everything else, HIIT, weights,
+ * workouts, yoga, walks and hikes included, is LIFT.
+ */
+export function toSport(stravaSportType: string): SportBucket {
   const t = stravaSportType.toLowerCase();
   if (t.includes("swim")) return "swim";
-  if (t.includes("ride") || t.includes("cycling") || t === "velomobile") return "bike";
-  if (t.includes("run") || t === "walk" || t === "hike") return "run";
-  if (
-    t.includes("weight") ||
-    t.includes("crossfit") ||
-    t.includes("workout") ||
-    t.includes("yoga") ||
-    t.includes("pilates")
-  )
-    return "strength";
-  return "other";
+  if (t.includes("ride") || t.includes("cycling") || t === "velomobile" || t === "handcycle") return "bike";
+  if (t.includes("run")) return "run";
+  return "strength";
 }
