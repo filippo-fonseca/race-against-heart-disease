@@ -2,7 +2,7 @@
 
 The site runs a remote [Model Context Protocol](https://modelcontextprotocol.io) server so the owner's Grok bot can keep Filippo's training log accurate. The bot does three things and nothing else: it **logs and edits Strava activities**, it **attaches photos** to them, and it reads (the overview, the activity list, the fundraising total). There is no training plan and no second athlete: the site is a retroactive log of what Filippo did, from day 1 (November 2, 2026) to race day (April 4, 2027). Everything the bot writes shows up on `/training` and the homepage on the next page load.
 
-- **URL:** `https://race-against-heart-disease.vercel.app/api/mcp`
+- **URL:** `https://www.againstheartdisease.xyz/api/mcp` (the `race-against-heart-disease.vercel.app` address works too)
 - **Transport:** Streamable HTTP, stateless (each POST is a complete JSON-RPC exchange; no sessions). Built on `mcp-handler` 2.3.0 and `@modelcontextprotocol/server` 2.3.1, so it answers both the 2025-era protocol (`2025-06-18` and earlier Streamable HTTP clients) and the 2026-07-28 revision.
 - **Code:** route `src/app/api/mcp/route.ts`; tool registry `src/lib/mcp/server.ts`; tool bodies in `src/lib/mcp/activity-tools.ts`, `photo-tools.ts`, `overview.ts`; pure logic (tested) in `activity-logic.ts`, `photo-edit.ts`, `photo-logic.ts`, `validate.ts`, `auth.ts`; tests in `src/lib/mcp/__tests__/` and `src/lib/training/__tests__/` (`strava.test.ts`, `sync.test.ts`).
 
@@ -40,7 +40,7 @@ The site runs a remote [Model Context Protocol](https://modelcontextprotocol.io)
 
 ## Auth
 
-Every request needs `Authorization: Bearer <MCP_TOKEN>`. The comparison is constant time (`src/lib/safe-equal.ts`). A bare token as the whole header value is also accepted, for clients that put only the token in the `authorization` field.
+Every request needs `Authorization: Bearer <MCP_TOKEN>`. The comparison is constant time (`src/lib/safe-equal.ts`). A bare token as the whole header value is also accepted, for clients that put only the token in the `authorization` field. For connector UIs that only take a URL, the token can instead go in a `key` query parameter (`/api/mcp?key=<MCP_TOKEN>`); the header wins when both are present. That URL then carries the secret, so keep it private (it can appear in Vercel's request logs).
 
 | Situation | Response |
 | --- | --- |
@@ -155,6 +155,29 @@ Edits photos the bot added (source `mcp`). Any combination of: a new `caption` f
 
 **`remove_photo`** `{ activity_id, photo_id }`
 Removes one photo the bot added and deletes its file. Strava photos are refused (remove them in the Strava app; the site follows).
+
+## Connecting the Grok app (grok.com)
+
+This is the quickest way to talk to the bot from your phone or browser. xAI documents custom connectors at <https://docs.x.ai/grok/connectors>: grok.com/connectors, **New Connector**, **Custom**, then the server URL and any authentication.
+
+1. **Server URL.** The docs don't say whether the custom connector form has a field for a token. Use whichever form fits:
+   - If the form has an API key, token or header field: URL `https://www.againstheartdisease.xyz/api/mcp`, with the token being `MCP_TOKEN` (bare, or as `Bearer <token>`).
+   - If it only takes a URL: `https://www.againstheartdisease.xyz/api/mcp?key=<MCP_TOKEN>`. The server accepts the token as a `key` query parameter for exactly this case. Treat that URL like a password: anyone with it can edit the training log.
+2. **Name** the connector `training`, so the tool names match the bot prompt.
+3. **Instructions.** Make a Grok Project (or use custom instructions) and paste everything below the line in `docs/GROK-BOT-PROMPT.md` as its instructions. Chat inside that project so the instructions and the connector are both active.
+4. **Hand the setup check to Grok.** Send the setup message below as the first chat in the project. Grok tests the connection itself and reports back.
+
+### Setup message for Grok
+
+```text
+You're connected to my training backend through the "training" connector. Before anything else, check the connection yourself:
+1. Call get_overview and tell me today's day number in the training window (Nov 2 is day 1, Apr 4 is race day), the days to race, whether Strava is linked, and my totals per sport (SWIM, RUN as distance; BIKE, LIFT as time).
+2. Call list_activities for the last 7 days and give me a one-line summary per activity.
+3. Call get_fundraising and tell me the total.
+If any call fails, show me the exact error and what you think it means (401 = wrong token or URL, 503 = MCP_TOKEN not set on the server). Don't create, edit or delete anything during this check. When all three work, reply "Connected" and remind me how to send sessions and photos.
+```
+
+**Photos in the Grok app.** If Grok can't pass a photo you upload in chat as a public URL, send it as base64 (`image_base64`, about 3 MB at most) or share a link to the image, and let `add_photo` fetch it.
 
 ## Connecting a Grok bot (xAI API)
 
