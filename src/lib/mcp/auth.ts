@@ -1,7 +1,7 @@
 import { safeEqual } from "../safe-equal";
 
 /**
- * Bearer check for /api/mcp. The token lives in MCP_TOKEN and is compared in
+ * Token check for /api/mcp (Authorization header, or a `key` query parameter). The token lives in MCP_TOKEN and is compared in
  * constant time. When MCP_TOKEN is unset the endpoint is closed (503), never
  * open. Pure (the env value is passed in), so tests can exercise it.
  */
@@ -22,6 +22,23 @@ export function extractBearer(header: string | null | undefined): string | null 
   const match = /^bearer\s+(.+)$/i.exec(value);
   const token = (match ? match[1] : value).trim();
   return token.length > 0 ? token : null;
+}
+
+/**
+ * The credential for a request: the Authorization header when present,
+ * otherwise a `key` query parameter. The query form exists for connector UIs
+ * (such as Grok's custom connector) that only take a server URL and cannot
+ * send headers. It is the same secret, so treat that URL like a password.
+ */
+export function requestCredential(header: string | null | undefined, url: string | URL): string | null {
+  const fromHeader = extractBearer(header);
+  if (fromHeader !== null) return fromHeader;
+  try {
+    const key = new URL(url).searchParams.get("key");
+    return key && key.trim().length > 0 ? key.trim() : null;
+  } catch {
+    return null;
+  }
 }
 
 export function checkMcpAuth(header: string | null | undefined, expected: string | undefined): McpAuthResult {
