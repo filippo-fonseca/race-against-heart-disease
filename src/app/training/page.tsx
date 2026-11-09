@@ -3,32 +3,36 @@ import { connection } from "next/server";
 import { Suspense, type CSSProperties } from "react";
 import { Mark } from "@/components/marks";
 import { SiteHeader } from "@/components/SiteHeader";
-import { AthleteToggle } from "@/components/training/AthleteToggle";
 import { ChartRail } from "@/components/training/ChartRail";
 import { Log } from "@/components/training/Log";
 import { Numerals } from "@/components/training/Numerals";
 import { ScrollSpy } from "@/components/training/ScrollSpy";
-import { buildWeekSlots, groupByWeek, minutesByDate, type AthleteFilter } from "@/components/training/model";
+import { buildFeed, buildWeekSlots, minutesByDate } from "@/components/training/model";
 import { site } from "@/lib/site";
 import { summary, weeklyTotals } from "@/lib/training/aggregate";
-import { addDays, daysBetween, todayISO, weekStartOf } from "@/lib/training/dates";
-import { DEFAULT_ATHLETES, loadTraining, resolveAthletes, type TrainingData } from "@/lib/training/load";
-import { buildMatches } from "@/lib/training/matcher";
-import { PLAN_START, PLAN_WEEKS, RACE_DATE, appliesTo, daysToRace, getPlan, phaseForWeek, weekOf, weekStart } from "@/lib/training/plan";
-import type { Activity, Athlete, PlanSession } from "@/lib/training/types";
+import {
+  RACE_DAY,
+  TRAINING_DAYS,
+  TRAINING_START,
+  TRAINING_WEEKS,
+  addDays,
+  dayNumber,
+  daysBetween,
+  daysToRace,
+  inWindow,
+  todayISO,
+  weekNumber,
+} from "@/lib/training/dates";
+import { loadTraining } from "@/lib/training/load";
+import type { Activity } from "@/lib/training/types";
 import "./training.css";
 
 export const metadata: Metadata = {
   title: "The training",
-  description: `A daily log of the build toward ${site.race.name}: every planned session, what actually happened, and the charts that keep it honest.`,
+  description: `Every swim, ride, run and lift on the way to ${site.race.name}, synced from Strava, with the charts that add it up.`,
 };
 
 const step = (i: number) => ({ "--i": i }) as CSSProperties;
-
-const weekNumberOf = (date: string) => weekOf(date).week;
-
-const longDate = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", timeZone: "UTC" });
-const fmtLong = (iso: string) => longDate.format(new Date(`${iso}T00:00:00Z`));
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -36,59 +40,28 @@ function first(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
 }
 
-function parseFilter(v: string | string[] | undefined): AthleteFilter {
-  const s = first(v);
-  return s === "filippo" || s === "emir" ? s : "both";
-}
-
 /**
  * Real data from Supabase (cached, tagged; see lib/training/load.ts). The
  * deterministic fixtures are reachable only with `?mock=1` outside production.
  */
-async function loadSource(useMock: boolean): Promise<{ data: TrainingData; plan: PlanSession[]; today: string }> {
+async function loadSource(useMock: boolean): Promise<{ activities: Activity[]; today: string }> {
   if (useMock && process.env.NODE_ENV !== "production") {
     const mock = await import("@/lib/training/mock");
-    const plan = await getPlan();
-    return {
-      data: { athletes: mock.mockAthletes, activities: mock.mockActivities(plan), error: null },
-      plan,
-      today: mock.MOCK_TODAY,
-    };
+    return { activities: mock.mockActivities(), today: mock.MOCK_TODAY };
   }
   // Today's date is request-time data; tell the prerenderer so before reading the clock.
   await connection();
-  const [data, plan] = await Promise.all([loadTraining(), getPlan()]);
-  return { data, plan, today: todayISO() };
+  const data = await loadTraining();
+  return { activities: data.activities, today: todayISO() };
 }
 
-async function loadTrainingView(filter: AthleteFilter, useMock: boolean) {
-  const { data, plan, today } = await loadSource(useMock);
-  const allAthletes = resolveAthletes(data.athletes);
-  const selected = allAthletes.filter((a) => filter === "both" || a.slug === filter);
-  const activities: Activity[] = data.activities.filter((a) => selected.some((s) => s.slug === a.athlete));
-
-  // The log runs from day one through the end of the current week, so upcoming
-  // sessions sit at the top. Before the program starts it shows week one.
-  const endOfWeek = addDays(weekStartOf(today), 6);
-  const firstWeekEnd = addDays(PLAN_START, 6);
-  const untilRaw = endOfWeek > firstWeekEnd ? endOfWeek : firstWeekEnd;
-  const until = untilRaw < RACE_DATE ? untilRaw : RACE_DATE;
-
-  const matches = selected.flatMap((a) => buildMatches({ from: PLAN_START, to: until }, a.slug, plan, activities, today));
-  const weekly = selected.flatMap((a) => weeklyTotals(activities, plan, a.slug, { from: PLAN_START, to: RACE_DATE }));
-  const summaries = selected.map((a) => summary(activities, a.slug, PLAN_START, today));
-
-  // "First session logs on November 3." while nothing has been logged yet.
-  let emptyNote: string | null = null;
-  if (activities.length === 0) {
-    const next = plan.find((s) => s.date >= today && selected.some((a) => appliesTo(s, a.slug)));
-    emptyNote = next ? `First session logs on ${fmtLong(next.date)}.` : "Nothing logged yet.";
-  }
-
-  return { today, allAthletes, selected, plan, activities, matches, weekly, summaries, emptyNote };
+/** "Day 8 of 154", clamped to the window. */
+function dayLabel(today: string): string {
+  if (today < TRAINING_START) return "Day 1 is Nov 2";
+  return `Day ${Math.min(dayNumber(today), TRAINING_DAYS)} of ${TRAINING_DAYS}`;
 }
 
-function Header({ athletes, selected }: { athletes: Athlete[]; selected: AthleteFilter | null }) {
+function Header({ today }: { today: string | null }) {
   return (
     <>
       <header className="rise flex flex-wrap items-end justify-between gap-x-8 gap-y-4" style={step(0)}>
@@ -101,7 +74,7 @@ function Header({ athletes, selected }: { athletes: Athlete[]; selected: Athlete
             {site.race.name} · {site.race.dateLabel}
           </div>
         </div>
-        {selected ? <AthleteToggle athletes={athletes} selected={selected} /> : <span className="label">&nbsp;</span>}
+        <span className="label !text-ink">{today ? dayLabel(today) : " "}</span>
       </header>
       <div className="rise mt-6 h-px w-full bg-red" style={step(1)} />
     </>
@@ -110,49 +83,53 @@ function Header({ athletes, selected }: { athletes: Athlete[]; selected: Athlete
 
 async function Body({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
-  const filter = parseFilter(params.athlete);
   const useMock = first(params.mock) === "1";
-  const { today, allAthletes, selected, plan, activities, matches, weekly, summaries, emptyNote } = await loadTrainingView(filter, useMock);
+  const { activities: all, today } = await loadSource(useMock);
 
-  const currentWeek = weekNumberOf(today);
-  const slots = buildWeekSlots(plan, weekly, PLAN_WEEKS, weekStart, selected.length);
-  const weeks = groupByWeek(matches, weekNumberOf, weekStartOf, phaseForWeek, selected.length);
+  // Retroactive only: what Strava logged inside the window, through today.
+  const activities = all.filter((a) => inWindow(a.date) && a.date <= today);
+  const currentWeek = weekNumber(today);
+  const slots = buildWeekSlots(weeklyTotals(activities, { from: TRAINING_START, to: RACE_DAY }));
+  const weeks = buildFeed(activities);
+  const totals = summary(activities, TRAINING_START, today);
 
   return (
     <>
-      <Header athletes={allAthletes} selected={filter} />
+      <Header today={today} />
 
       <div className="mt-10">
-        <Numerals summaries={summaries} daysToRace={daysToRace(today)} />
+        <Numerals summary={totals} daysToRace={Math.max(0, daysToRace(today))} />
       </div>
-
-      {emptyNote ? (
-        <p className="rise mt-6 label" style={step(2)}>
-          {emptyNote}
-        </p>
-      ) : null}
 
       <div className="mt-12 grid grid-cols-[minmax(0,1fr)] gap-12 lg:grid-cols-[minmax(0,1fr)_21rem] lg:gap-16">
         <div className="lg:order-last">
           <ChartRail
             cal={{
-              start: PLAN_START,
-              raceDay: RACE_DATE,
+              start: TRAINING_START,
+              raceDay: RACE_DAY,
               today,
-              totalWeeks: PLAN_WEEKS,
-              totalDays: daysBetween(PLAN_START, RACE_DATE),
+              totalWeeks: TRAINING_WEEKS,
+              totalDays: TRAINING_DAYS - 1,
               currentWeek,
               addDays,
               daysBetween,
-              weekNumberOf,
+              weekNumberOf: weekNumber,
             }}
-            minutes={minutesByDate(matches)}
+            minutes={minutesByDate(activities)}
             slots={slots}
             activities={activities}
           />
         </div>
         <div id="training-log">
-          <Log weeks={weeks} athletes={allAthletes} today={today} showAthlete={selected.length > 1} />
+          {weeks.length > 0 ? (
+            <Log weeks={weeks} today={today} />
+          ) : (
+            <p className="rise font-serif text-[1.15rem] text-ink-soft" style={step(4)}>
+              {today < TRAINING_START
+                ? "Day one is November 2. The first session shows up here as soon as it hits Strava."
+                : "Nothing logged yet. The first session shows up here as soon as it hits Strava."}
+            </p>
+          )}
         </div>
       </div>
 
@@ -166,24 +143,24 @@ export default function TrainingPage({ searchParams }: { searchParams: Promise<S
     <>
       <SiteHeader current="training" />
       <div id="training-root" className="training px-4 py-6 sm:px-6 sm:py-10">
-      <article className="sheet relative mx-auto w-full max-w-[1200px] px-6 py-10 sm:px-12 sm:py-14 lg:px-16 lg:py-16">
-        <Suspense fallback={<Header athletes={DEFAULT_ATHLETES} selected={null} />}>
-          <Body searchParams={searchParams} />
-        </Suspense>
-        <footer className="mt-16 flex flex-wrap items-center justify-between gap-3 border-t border-rule pt-5">
-          <span className="label">
-            Postmarked {site.race.city}, {site.race.stateAbbr} · {site.race.postmarkDate}
-          </span>
-          <a
-            href={site.repo}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="label underline decoration-rule underline-offset-4 hover:text-red"
-          >
-            Source on GitHub ↗
-          </a>
-        </footer>
-      </article>
+        <article className="sheet relative mx-auto w-full max-w-[1200px] px-0 py-4 sm:px-12 sm:py-14 lg:px-16 lg:py-16">
+          <Suspense fallback={<Header today={null} />}>
+            <Body searchParams={searchParams} />
+          </Suspense>
+          <footer className="mt-16 flex flex-wrap items-center justify-between gap-3 border-t border-rule pt-5">
+            <span className="label">
+              Postmarked {site.race.city}, {site.race.stateAbbr} · {site.race.postmarkDate}
+            </span>
+            <a
+              href={site.repo}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="label underline decoration-rule underline-offset-4 hover:text-red"
+            >
+              Source on GitHub ↗
+            </a>
+          </footer>
+        </article>
       </div>
     </>
   );

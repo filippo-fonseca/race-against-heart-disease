@@ -8,16 +8,13 @@ const LEFT = 18;
 const BOTTOM = 14;
 const TOP = 6;
 
-/** Thin stacked bars, one per program week, with the plan drawn as a step line. */
+/** Thin stacked bars, one per week of the window: logged hours only, stacked SWIM, BIKE, RUN, LIFT. */
 export function WeeklyHours({ slots, currentWeek }: { slots: WeekSlot[]; currentWeek: number }) {
   const plot = { x0: LEFT, x1: W - 2, y0: TOP, y1: H - BOTTOM };
   const n = slots.length;
   const pitch = (plot.x1 - plot.x0) / n;
   const bar = Math.max(3, pitch * 0.5);
-  const maxSec = Math.max(
-    3600 * 2,
-    ...slots.map((s) => Math.max(s.totalSec, s.plannedSec)),
-  );
+  const maxSec = Math.max(3600 * 2, ...slots.map((s) => s.totalSec));
   // Four or five hairlines whatever the scale: 2h steps up to 10h, then 5h, then 10h.
   const rawMax = maxSec / 3600;
   const tickStep = rawMax <= 10 ? 2 : rawMax <= 25 ? 5 : 10;
@@ -25,24 +22,16 @@ export function WeeklyHours({ slots, currentWeek }: { slots: WeekSlot[]; current
   const y = (sec: number) => plot.y1 - ((sec / 3600) / maxH) * (plot.y1 - plot.y0);
   const ticks = Array.from({ length: maxH / tickStep + 1 }, (_, i) => i * tickStep);
 
-  const planPath = slots
-    .map((s, i) => {
-      const x0 = plot.x0 + i * pitch;
-      const yy = y(s.plannedSec);
-      return `${i === 0 ? "M" : "L"}${x0.toFixed(1)} ${yy.toFixed(1)} H${(x0 + pitch).toFixed(1)}`;
-    })
-    .join(" ");
-
   const done = slots.filter((s) => s.week <= currentWeek);
-  const actual = done.reduce((s, w) => s + w.totalSec, 0);
-  const planned = done.reduce((s, w) => s + w.plannedSec, 0);
+  const logged = done.reduce((s, w) => s + w.totalSec, 0);
+  const weeksIn = Math.max(1, Math.min(currentWeek, slots.length));
 
   return (
     <ChartFrame
       title="Hours per week"
-      meta={`${fmtHours(actual)} of ${fmtHours(planned)} h`}
-      label="Weekly training hours by sport against the plan"
-      summary={`Stacked weekly hours by sport. ${fmtHours(actual)} hours done against ${fmtHours(planned)} planned through week ${currentWeek}. The thin stepped line is the plan.`}
+      meta={`${fmtHours(logged)} h logged`}
+      label="Weekly training hours by sport"
+      summary={`Stacked weekly hours by sport from Strava: swim, bike, run and lift. ${fmtHours(logged)} hours logged over ${weeksIn} ${weeksIn === 1 ? "week" : "weeks"}.`}
     >
       <svg viewBox={`0 0 ${W} ${H}`} className="block w-full">
         {ticks.map((t) => (
@@ -87,7 +76,6 @@ export function WeeklyHours({ slots, currentWeek }: { slots: WeekSlot[]; current
             </g>
           );
         })}
-        <path d={planPath} fill="none" stroke="var(--ink)" strokeWidth={1} strokeDasharray="2 2" />
         <line x1={plot.x0} x2={plot.x1} y1={plot.y1} y2={plot.y1} stroke="var(--ink)" strokeWidth={1} shapeRendering="crispEdges" />
       </svg>
       <Legend

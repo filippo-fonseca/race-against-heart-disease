@@ -1,11 +1,11 @@
 import { cacheLife, cacheTag } from "next/cache";
 import type { Activity, Athlete } from "./types";
-import { PLAN_START } from "./plan";
+import { RACE_DAY, TRAINING_START } from "./dates";
 import { TRAINING_CACHE_TAG, listActivities, listAthletes } from "./queries";
 
 /**
  * What the /training page reads. One cached Supabase round trip for both
- * athletes and every activity since the program started; the page filters
+ * athletes and every activity in the training window (Nov 2 to race day); the page filters
  * in memory. Everything time-dependent (today, the athlete filter) stays
  * outside the cache so the entry is keyed only on the data.
  */
@@ -33,7 +33,7 @@ async function fetchTrainingData(): Promise<TrainingData> {
   "use cache";
   cacheTag(TRAINING_CACHE_TAG);
   try {
-    const [athletes, activities] = await Promise.all([listAthletes(), listActivities({ from: PLAN_START })]);
+    const [athletes, activities] = await Promise.all([listAthletes(), listActivities({ from: TRAINING_START, to: RACE_DAY })]);
     cacheLife("hours");
     return { athletes, activities, error: null };
   } catch (err) {

@@ -1,46 +1,29 @@
 /**
  * View-model builders. Pure functions from the contract types in
- * src/lib/training/types.ts to the shapes the charts and log render.
- * These are UI concerns and stay put when the data source changes.
+ * src/lib/training/types.ts to the shapes the charts and the feed render.
+ * Everything is retroactive: built only from logged Strava activities.
  */
 
-import type { Activity, DayMatch, PlanSession, Sport, WeeklyTotals } from "@/lib/training/types";
+import { SPORTS, type Activity, type SportBucket, type WeeklyTotals } from "@/lib/training/types";
+import { TRAINING_WEEKS, weekNumber, weekStartFor } from "@/lib/training/dates";
 
-export type AthleteFilter = "filippo" | "emir" | "both";
-
-export const SPORTS: Sport[] = ["swim", "bike", "run", "strength", "other"];
-
-/** One program week, with the plan and every selected athlete's actuals rolled together. */
+/** One week of the window with its logged time per sport. */
 export interface WeekSlot {
   week: number;
   weekStart: string;
-  phase: string | null;
-  bySportSec: Record<Sport, number>;
+  bySportSec: Record<SportBucket, number>;
   totalSec: number;
-  plannedSec: number;
 }
 
-function zeroBySport(): Record<Sport, number> {
-  return { swim: 0, bike: 0, run: 0, strength: 0, other: 0 };
+function zeroBySport(): Record<SportBucket, number> {
+  return { swim: 0, bike: 0, run: 0, strength: 0 };
 }
 
-/**
- * Lay out every week of the program, filling actuals from `weekly` (one or more
- * athletes) and the plan from `plan`. `weekStartFor(week)` maps a 1-based week
- * to its Monday; `athleteCount` scales planned time when several athletes are shown.
- */
-export function buildWeekSlots(
-  plan: PlanSession[],
-  weekly: WeeklyTotals[],
-  totalWeeks: number,
-  weekStartFor: (week: number) => string,
-  athleteCount: number,
-): WeekSlot[] {
+/** Every week of the window (1 to 22), filled from `weekly`. Weeks with nothing are zero. */
+export function buildWeekSlots(weekly: WeeklyTotals[]): WeekSlot[] {
   const slots: WeekSlot[] = [];
-  for (let w = 1; w <= totalWeeks; w++) {
+  for (let w = 1; w <= TRAINING_WEEKS; w++) {
     const weekStart = weekStartFor(w);
-    const sessions = plan.filter((p) => p.week === w);
-    const plannedSec = sessions.reduce((s, p) => s + (p.targetMin ?? 0) * 60, 0) * athleteCount;
     const bySportSec = zeroBySport();
     let totalSec = 0;
     for (const t of weekly) {
@@ -48,85 +31,54 @@ export function buildWeekSlots(
       for (const s of SPORTS) bySportSec[s] += t.bySport[s].timeSec;
       totalSec += t.totalTimeSec;
     }
-    slots.push({
-      week: w,
-      weekStart,
-      phase: sessions[0]?.phase ?? null,
-      bySportSec,
-      totalSec,
-      plannedSec,
-    });
+    slots.push({ week: w, weekStart, bySportSec, totalSec });
   }
   return slots;
 }
 
-/** Minutes trained per calendar day, all selected athletes combined. */
-export function minutesByDate(matches: DayMatch[]): Map<string, number> {
+/** Minutes trained per calendar day. */
+export function minutesByDate(activities: Activity[]): Map<string, number> {
   const out = new Map<string, number>();
-  for (const m of matches) {
-    const sec = m.actual.reduce((s, a) => s + a.movingTimeSec, 0);
-    out.set(m.date, (out.get(m.date) ?? 0) + sec / 60);
-  }
+  for (const a of activities) out.set(a.date, (out.get(a.date) ?? 0) + a.movingTimeSec / 60);
   return out;
 }
 
-/** A week of the log: every athlete's day matches for that week, newest day first. */
-export interface WeekGroup {
-  week: number;
-  weekStart: string;
-  phase: string | null;
-  /** Each entry is one date; inside, one DayMatch per selected athlete. */
-  days: { date: string; perAthlete: DayMatch[] }[];
-  actualSec: number;
-  plannedSec: number;
+/** One day of the feed: its activities, newest first. */
+export interface FeedDay {
+  date: string;
+  activities: Activity[];
 }
 
-export function groupByWeek(
-  matches: DayMatch[],
-  weekNumberOf: (date: string) => number,
-  weekStartOf: (date: string) => string,
-  phaseForWeek: (week: number) => string | null,
-  athleteCount: number,
-): WeekGroup[] {
-  const weeks = new Map<number, WeekGroup>();
-  const dayIndex = new Map<string, DayMatch[]>();
-  for (const m of matches) {
-    const w = weekNumberOf(m.date);
-    let g = weeks.get(w);
-    if (!g) {
-      g = {
-        week: w,
-        weekStart: weekStartOf(m.date),
-        phase: phaseForWeek(w),
-        days: [],
-        actualSec: 0,
-        plannedSec: 0,
-      };
-      weeks.set(w, g);
+/** One week of the feed. Only days with activities appear; empty weeks are left out. */
+export interface FeedWeek {
+  week: number;
+  weekStart: string;
+  days: FeedDay[];
+  totalSec: number;
+}
+
+/** Group activities into weeks and days, newest first at every level. */
+export function buildFeed(activities: Activity[]): FeedWeek[] {
+  const weeks = new Map<number, FeedWeek>();
+  const days = new Map<string, FeedDay>();
+  const sorted = activities.slice().sort((a, b) => b.startLocal.localeCompare(a.startLocal));
+  for (const a of sorted) {
+    const w = weekNumber(a.date);
+    let week = weeks.get(w);
+    if (!week) {
+      week = { week: w, weekStart: weekStartFor(w), days: [], totalSec: 0 };
+      weeks.set(w, week);
     }
-    let per = dayIndex.get(m.date);
-    if (!per) {
-      per = [];
-      dayIndex.set(m.date, per);
-      g.days.push({ date: m.date, perAthlete: per });
+    let day = days.get(a.date);
+    if (!day) {
+      day = { date: a.date, activities: [] };
+      days.set(a.date, day);
+      week.days.push(day);
     }
-    per.push(m);
-    g.actualSec += m.actual.reduce((s, a) => s + a.movingTimeSec, 0);
+    day.activities.push(a);
+    week.totalSec += a.movingTimeSec;
   }
-  // Planned time is per athlete; count each session once per selected athlete.
-  for (const g of weeks.values()) {
-    const seen = new Set<string>();
-    for (const d of g.days) {
-      for (const m of d.perAthlete) {
-        for (const p of m.planned) {
-          if (seen.has(p.id)) continue;
-          seen.add(p.id);
-          g.plannedSec += (p.targetMin ?? 0) * 60 * athleteCount;
-        }
-      }
-    }
-    g.days.sort((a, b) => b.date.localeCompare(a.date));
-  }
+  for (const week of weeks.values()) week.days.sort((a, b) => b.date.localeCompare(a.date));
   return [...weeks.values()].sort((a, b) => b.week - a.week);
 }
 

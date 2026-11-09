@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { Sport } from "@/lib/training/types";
+import { SPORTS, type Sport, type SportBucket } from "@/lib/training/types";
 
 /**
  * Sport encoding within the palette. Red is reserved for the bike (the longest
@@ -14,7 +14,7 @@ export const sportFill: Record<Sport, string> = {
 };
 
 /** Sports that get their own layer in the charts, in stack order (bottom first). */
-export const chartSports: Sport[] = ["swim", "bike", "run", "strength"];
+export const chartSports: readonly SportBucket[] = SPORTS;
 
 export function ChartFrame({
   title,

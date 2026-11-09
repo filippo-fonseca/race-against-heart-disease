@@ -23,6 +23,18 @@ export function fmtKm(m: number, sport?: Sport): string {
   return km.toFixed(1);
 }
 
+/** "4:52", minutes and seconds. */
+function fmtMS(sec: number): string {
+  const s = Math.round(sec);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+/** Pace: per 100 m for swims ("1:52"), per km otherwise ("4:48"). Null without distance. */
+export function fmtPace(timeSec: number, distanceM: number, sport: Sport): string | null {
+  if (distanceM <= 0 || timeSec <= 0) return null;
+  return fmtMS(sport === "swim" ? (timeSec / distanceM) * 100 : (timeSec / distanceM) * 1000);
+}
+
 export function fmtMinutes(sec: number): string {
   return `${Math.round(sec / 60)} min`;
 }

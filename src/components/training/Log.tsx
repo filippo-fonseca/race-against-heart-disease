@@ -1,124 +1,85 @@
 import type { CSSProperties } from "react";
-import type { Activity, Athlete, DayMatch, PlanSession } from "@/lib/training/types";
-import { fmtClock, fmtDay, fmtHM, fmtKm, fmtWeekRange, sportLabel, sportVerb } from "./format";
-import type { WeekGroup } from "./model";
+import { dayNumber } from "@/lib/training/dates";
+import { bucketOf, type Activity } from "@/lib/training/types";
+import { fmtClock, fmtDay, fmtHM, fmtKm, fmtPace, fmtWeekRange } from "./format";
+import type { FeedWeek } from "./model";
 import { Photos } from "./Photos";
 import { SportPill } from "./SportPill";
-import { StatusGlyph } from "./StatusGlyph";
 
 const step = (i: number) => ({ "--i": i }) as CSSProperties;
 
-function list(parts: string[]): string {
-  if (parts.length <= 1) return parts.join("");
-  return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+interface Stat {
+  value: string;
+  unit?: string;
+  label: string;
 }
 
-/** "Planned 60 min Z2 ride. Rode 62 min, 145 bpm avg." */
-export function autoNote(m: DayMatch, today: string): string {
-  const planned = m.planned.map((p) => `${p.targetMin ?? 0} min ${sportLabel[p.sport].toLowerCase()}`);
-  const did = m.actual.map((a) => {
-    const mins = Math.round(a.movingTimeSec / 60);
-    const hr = a.avgHr ? `, ${a.avgHr} bpm avg` : "";
-    return `${sportVerb[a.sport]} ${mins} min${hr}`;
-  });
+/**
+ * Two to four headline figures per card, following the stats rule: swims and
+ * runs lead with distance, rides and lifts lead with time. A ride shows its
+ * distance only when Strava recorded one (indoor rides have none).
+ */
+export function activityStats(a: Activity): Stat[] {
+  const sport = bucketOf(a.sport);
+  const time: Stat = { value: fmtHM(a.movingTimeSec), label: "Time" };
+  const km: Stat | null = a.distanceM > 0 ? { value: fmtKm(a.distanceM, sport), unit: "km", label: "Distance" } : null;
+  const pace = fmtPace(a.movingTimeSec, a.distanceM, sport);
+  const hr: Stat | null = a.avgHr ? { value: String(Math.round(a.avgHr)), unit: "bpm", label: "Avg HR" } : null;
+  const watts: Stat | null = a.avgWatts ? { value: String(Math.round(a.avgWatts)), unit: "W", label: "Avg power" } : null;
 
-  if (m.status === "upcoming") {
-    const when = m.date === today ? "Today: " : "";
-    return `${when}${planned.length ? `Planned ${list(planned)}.` : "Rest."}`;
-  }
-  if (m.status === "rest") return did.length ? `Unplanned. ${did.join(". ")}.` : "Rest day.";
-  if (m.status === "missed") return `Planned ${list(planned)}. Nothing logged.`;
-  if (planned.length === 0) return `Unplanned. ${did.join(". ")}.`;
-  return `Planned ${list(planned)}. ${did.join(". ")}.`;
+  let stats: (Stat | null)[];
+  if (sport === "swim") stats = [km, time, pace ? { value: pace, unit: "/100m", label: "Pace" } : null, hr];
+  else if (sport === "run") stats = [km, time, pace ? { value: pace, unit: "/km", label: "Pace" } : null, hr];
+  else if (sport === "bike") stats = [time, km, watts, hr];
+  else stats = [time, hr, watts];
+  return stats.filter((s): s is Stat => s !== null).slice(0, 4);
 }
 
-function PlannedLine({ p, status }: { p: PlanSession; status: DayMatch["status"] }) {
+function ActivityCard({ a }: { a: Activity }) {
+  const stats = activityStats(a);
   return (
-    <li className="flex gap-2">
-      <StatusGlyph status={status} className="mt-[0.2rem] shrink-0" />
-      <div className="min-w-0">
-        <div className="num text-[0.82rem] text-ink">
-          {p.title}
-          <span className="text-ink-soft">
-            {p.targetMin ? ` · ${p.targetMin} min` : ""}
-            {p.targetKm ? ` · ${p.targetKm} km` : ""}
-          </span>
+    <li className="overflow-hidden rounded-2xl bg-paper shadow-[var(--shadow-surface)]">
+      <article aria-label={a.name} className="px-4 pb-4 pt-4 sm:px-6 sm:pb-5 sm:pt-5">
+        <div className="flex items-start gap-2.5">
+          <SportPill sport={a.sport} className="mt-[0.35rem]" />
+          <h4 className="min-w-0 font-serif text-[1.3rem] leading-snug text-ink sm:text-[1.4rem]">{a.name}</h4>
         </div>
-        {p.detail ? <div className="font-serif text-[0.98rem] italic leading-snug text-ink-soft">{p.detail}</div> : null}
-      </div>
-    </li>
-  );
-}
-
-function ActualLine({ a }: { a: Activity }) {
-  const bits = [
-    fmtClock(a.startLocal),
-    fmtHM(a.movingTimeSec),
-    a.distanceM > 0 ? `${fmtKm(a.distanceM, a.sport)} km` : null,
-    a.avgHr ? `${a.avgHr} bpm` : null,
-    a.avgWatts ? `${a.avgWatts} w` : null,
-  ].filter(Boolean);
-  return (
-    <li>
-      <div className="num flex flex-wrap items-center gap-x-2 text-[0.82rem] text-ink">
-        <SportPill sport={a.sport} />
-        {bits.join(" · ")}
-        <span className="ml-2 text-ink-soft">{a.name}</span>
-      </div>
-      {a.description ? <div className="font-serif text-[0.98rem] italic text-ink-soft">{a.description}</div> : null}
+        <p className="mt-1.5 line-clamp-2 text-[0.98rem] leading-snug text-ink-soft" title={a.description ?? undefined}>
+          <span className="num text-[0.82rem]">{fmtClock(a.startLocal)}</span>
+          {a.description ? (
+            <>
+              <span aria-hidden="true"> · </span>
+              <span className="font-serif italic">{a.description}</span>
+            </>
+          ) : null}
+        </p>
+        {stats.length > 0 ? (
+          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-4">
+            {stats.map((s) => (
+              <div key={s.label} className="flex min-w-0 flex-col-reverse">
+                <dt className="label mt-1">{s.label}</dt>
+                <dd className="num truncate text-[1.45rem] leading-none text-ink sm:text-[1.6rem]">
+                  {s.value}
+                  {s.unit ? <span className="ml-1 text-[0.8rem] text-ink-soft">{s.unit}</span> : null}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
+      </article>
       <Photos photos={a.photos} alt={`${a.name}, ${fmtDay(a.date)}`} />
     </li>
   );
 }
 
-function DayBody({ m, today, athleteName }: { m: DayMatch; today: string; athleteName: string | null }) {
-  const planStatus = m.status === "rest" ? "rest" : m.status;
-  const quiet = m.status === "rest" && m.actual.length === 0;
-  return (
-    <div className={`min-w-0 ${quiet ? "text-ink-soft" : ""}`}>
-      {athleteName ? <div className="label mb-1.5 !text-ink">{athleteName}</div> : null}
-      {m.planned.length > 0 ? (
-        <ul className="space-y-1.5">
-          {m.planned.map((p) => (
-            <PlannedLine key={p.id} p={p} status={planStatus} />
-          ))}
-        </ul>
-      ) : (
-        <div className="flex gap-2">
-          <StatusGlyph status={m.actual.length ? "done" : "rest"} className="mt-[0.2rem]" />
-          <span className="num text-[0.82rem]">{m.actual.length ? "Unplanned" : "Rest"}</span>
-        </div>
-      )}
-      {m.actual.length > 0 ? (
-        <ul className="mt-2.5 space-y-2 border-l border-rule pl-3">
-          {m.actual.map((a) => (
-            <ActualLine key={a.id} a={a} />
-          ))}
-        </ul>
-      ) : null}
-      <p className={`mt-2.5 font-serif text-[1.05rem] leading-snug ${quiet ? "text-ink-soft" : "text-ink"}`}>{autoNote(m, today)}</p>
-    </div>
-  );
-}
-
 /**
- * The log: weeks newest first, days newest first inside each. Each week is a
- * `data-week-section` the ScrollSpy watches.
+ * The feed: one card per activity, newest first, under quiet day headers
+ * ("Day 8 · Sun, Nov 8") and subtle week separators. Days with nothing logged
+ * are simply absent. Each week is a `data-week-section` the ScrollSpy watches.
  */
-export function Log({
-  weeks,
-  athletes,
-  today,
-  showAthlete,
-}: {
-  weeks: WeekGroup[];
-  athletes: Athlete[];
-  today: string;
-  showAthlete: boolean;
-}) {
-  const nameOf = (slug: string) => athletes.find((a) => a.slug === slug)?.name ?? slug;
+export function Log({ weeks, today }: { weeks: FeedWeek[]; today: string }) {
   return (
-    <div className="space-y-14">
+    <div className="space-y-12">
       {weeks.map((w, wi) => (
         <section
           key={w.week}
@@ -128,36 +89,30 @@ export function Log({
           className={wi < 2 ? "rise" : ""}
           style={step(4 + wi)}
         >
-          <h2
-            id={`week-${w.week}`}
-            className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-ink pt-2"
-          >
-            <span className="label !text-ink">
-              Week {w.week}
-              {w.phase ? ` · ${w.phase}` : ""}
-            </span>
+          <h2 id={`week-${w.week}`} className="flex items-baseline justify-between gap-4 border-b border-rule pb-2">
             <span className="label">
-              <span className="!text-ink">{fmtHM(w.actualSec)}</span> of {fmtHM(w.plannedSec)} planned · {fmtWeekRange(w.weekStart)}
+              Week {w.week} · {fmtWeekRange(w.weekStart)}
             </span>
+            <span className="label">{fmtHM(w.totalSec)}</span>
           </h2>
-          <ol className="mt-5 space-y-7">
+          <div className="mt-6 space-y-8">
             {w.days.map((d) => {
               const isToday = d.date === today;
               return (
-                <li key={d.date} className="grid gap-3 sm:grid-cols-[7.5rem_minmax(0,1fr)] sm:gap-6">
-                  <div className={`num text-[0.82rem] ${isToday ? "text-red" : "text-ink-soft"}`}>
-                    <time dateTime={d.date}>{fmtDay(d.date)}</time>
-                    {isToday ? <div className="label !text-red">Today</div> : null}
-                  </div>
-                  <div className="space-y-5">
-                    {d.perAthlete.map((m) => (
-                      <DayBody key={m.athlete} m={m} today={today} athleteName={showAthlete ? nameOf(m.athlete) : null} />
+                <div key={d.date}>
+                  <h3 className={`label ${isToday ? "!text-red" : "!text-ink"}`}>
+                    Day {dayNumber(d.date)} · <time dateTime={d.date}>{fmtDay(d.date)}</time>
+                    {isToday ? " · Today" : ""}
+                  </h3>
+                  <ul className="mt-3 space-y-4">
+                    {d.activities.map((a) => (
+                      <ActivityCard key={a.id} a={a} />
                     ))}
-                  </div>
-                </li>
+                  </ul>
+                </div>
               );
             })}
-          </ol>
+          </div>
         </section>
       ))}
     </div>

@@ -1,36 +1,36 @@
 /**
- * Pure aggregations over activities and the plan for the charts and the
- * headline numerals. Everything keys on YYYY-MM-DD strings; weeks start on
- * Monday. No Date objects in local time anywhere.
+ * Pure aggregations over Strava activities for the charts and the headline
+ * numerals. Everything is retroactive: only what was logged counts. Keys are
+ * YYYY-MM-DD strings; weeks start on Monday. No Date objects in local time.
+ * Callers pass the activities to count (the site shows only Filippo's).
  */
 
-import type { Activity, AthleteSlug, PlanSession, Sport, TrainingSummary, WeeklyTotals } from "./types";
-import { appliesTo } from "./plan";
+import { SPORTS, bucketOf, type Activity, type SportBucket, type TrainingSummary, type WeeklyTotals } from "./types";
 import { addDays, eachDay, type ISODate, todayISO, weekStartOf } from "./dates";
 
-export const SPORTS: readonly Sport[] = ["swim", "bike", "run", "strength", "other"];
+export type SportTotals = { timeSec: number; distanceM: number; count: number };
 
-type SportBucket = { timeSec: number; distanceM: number; count: number };
-
-export function emptyBySport(): Record<Sport, SportBucket> {
+export function emptyBySport(): Record<SportBucket, SportTotals> {
   return {
     swim: { timeSec: 0, distanceM: 0, count: 0 },
     bike: { timeSec: 0, distanceM: 0, count: 0 },
     run: { timeSec: 0, distanceM: 0, count: 0 },
     strength: { timeSec: 0, distanceM: 0, count: 0 },
-    other: { timeSec: 0, distanceM: 0, count: 0 },
   };
 }
 
-function addTo(bucket: Record<Sport, SportBucket>, a: Activity): void {
-  const b = bucket[a.sport];
+function addTo(bucket: Record<SportBucket, SportTotals>, a: Activity): void {
+  const b = bucket[bucketOf(a.sport)];
   b.timeSec += a.movingTimeSec;
   b.distanceM += a.distanceM;
   b.count += 1;
 }
 
-function forAthlete(activities: Activity[], athlete: AthleteSlug): Activity[] {
-  return activities.filter((a) => a.athlete === athlete);
+/** Per-sport totals over a list of activities. */
+export function totalsBySport(activities: Activity[]): Record<SportBucket, SportTotals> {
+  const out = emptyBySport();
+  for (const a of activities) addTo(out, a);
+  return out;
 }
 
 /* ------------------------------------------------------------------ */
@@ -38,21 +38,18 @@ function forAthlete(activities: Activity[], athlete: AthleteSlug): Activity[] {
 /* ------------------------------------------------------------------ */
 
 export interface WeeklyTotalsOptions {
-  /** Clamp the weeks returned. Defaults to every week touched by the plan or the activities. */
+  /** Clamp the weeks returned. Defaults to every week touched by the activities. */
   from?: ISODate;
   to?: ISODate;
 }
 
 /**
- * One row per Monday-start week, in order, covering every week that has
- * either an activity or a planned session for the athlete. Weeks in between
- * with nothing are included as zero rows so charts stay contiguous.
+ * One row per Monday-start week, in order, covering every week from the first
+ * to the last activity (or the clamped range). Weeks with nothing are zero
+ * rows so charts stay contiguous.
  */
-export function weeklyTotals(activities: Activity[], plan: PlanSession[], athlete: AthleteSlug, opts: WeeklyTotalsOptions = {}): WeeklyTotals[] {
-  const acts = forAthlete(activities, athlete);
-  const sessions = plan.filter((s) => appliesTo(s, athlete));
-
-  const dates = [...acts.map((a) => a.date), ...sessions.map((s) => s.date)];
+export function weeklyTotals(activities: Activity[], opts: WeeklyTotalsOptions = {}): WeeklyTotals[] {
+  const dates = activities.map((a) => a.date);
   if (opts.from) dates.push(opts.from);
   if (opts.to) dates.push(opts.to);
   if (dates.length === 0) return [];
@@ -64,32 +61,16 @@ export function weeklyTotals(activities: Activity[], plan: PlanSession[], athlet
 
   const rows = new Map<ISODate, WeeklyTotals>();
   for (let ws = first; ws <= last; ws = addDays(ws, 7)) {
-    rows.set(ws, { weekStart: ws, athlete, bySport: emptyBySport(), totalTimeSec: 0, plannedTimeSec: 0 });
+    rows.set(ws, { weekStart: ws, bySport: emptyBySport(), totalTimeSec: 0 });
   }
 
-  for (const a of acts) {
+  for (const a of activities) {
     const row = rows.get(weekStartOf(a.date));
     if (!row) continue;
     addTo(row.bySport, a);
     row.totalTimeSec += a.movingTimeSec;
   }
-  for (const s of sessions) {
-    const row = rows.get(weekStartOf(s.date));
-    if (!row) continue;
-    row.plannedTimeSec += (s.targetMin ?? 0) * 60;
-  }
   return [...rows.values()];
-}
-
-/** Planned seconds per sport for one week, for the "vs plan" overlay. */
-export function plannedBySport(plan: PlanSession[], weekStart: ISODate, athlete: AthleteSlug): Record<Sport, number> {
-  const out: Record<Sport, number> = { swim: 0, bike: 0, run: 0, strength: 0, other: 0 };
-  const end = addDays(weekStart, 6);
-  for (const s of plan) {
-    if (s.date < weekStart || s.date > end || !appliesTo(s, athlete)) continue;
-    out[s.sport] += (s.targetMin ?? 0) * 60;
-  }
-  return out;
 }
 
 /* ------------------------------------------------------------------ */
@@ -112,24 +93,22 @@ export function streakDays(activities: Activity[], today: ISODate = todayISO()):
   return n;
 }
 
-export function summary(activities: Activity[], athlete: AthleteSlug, since: ISODate, today: ISODate = todayISO()): TrainingSummary {
-  const acts = forAthlete(activities, athlete).filter((a) => a.date >= since && a.date <= today);
-  const bySport = emptyBySport();
+/** Totals from `since` through `today`, both included. */
+export function summary(activities: Activity[], since: ISODate, today: ISODate = todayISO()): TrainingSummary {
+  const acts = activities.filter((a) => a.date >= since && a.date <= today);
   let totalTimeSec = 0;
   let totalDistanceM = 0;
   for (const a of acts) {
-    addTo(bySport, a);
     totalTimeSec += a.movingTimeSec;
     totalDistanceM += a.distanceM;
   }
   return {
-    athlete,
     since,
     totalTimeSec,
     totalDistanceM,
     sessions: acts.length,
     streakDays: streakDays(acts, today),
-    bySport,
+    bySport: totalsBySport(acts),
   };
 }
 
@@ -141,22 +120,24 @@ export interface CalendarCell {
   date: ISODate;
   timeSec: number;
   /** Sports logged that day, in the order they occurred, deduplicated. */
-  sports: Sport[];
+  sports: SportBucket[];
   count: number;
 }
 
-/** One cell per day from `from` to `to` inclusive. Pass pre-filtered activities or an athlete. */
-export function calendarCells(activities: Activity[], from: ISODate, to: ISODate, athlete?: AthleteSlug): CalendarCell[] {
-  const acts = athlete ? forAthlete(activities, athlete) : activities;
+/** One cell per day from `from` to `to` inclusive. */
+export function calendarCells(activities: Activity[], from: ISODate, to: ISODate): CalendarCell[] {
   const byDate = new Map<ISODate, Activity[]>();
-  for (const a of acts) {
+  for (const a of activities) {
     if (a.date < from || a.date > to) continue;
     byDate.set(a.date, [...(byDate.get(a.date) ?? []), a]);
   }
   return eachDay(from, to).map((date) => {
     const list = (byDate.get(date) ?? []).slice().sort((a, b) => a.startLocal.localeCompare(b.startLocal));
-    const sports: Sport[] = [];
-    for (const a of list) if (!sports.includes(a.sport)) sports.push(a.sport);
+    const sports: SportBucket[] = [];
+    for (const a of list) {
+      const b = bucketOf(a.sport);
+      if (!sports.includes(b)) sports.push(b);
+    }
     return { date, timeSec: list.reduce((n, a) => n + a.movingTimeSec, 0), sports, count: list.length };
   });
 }
@@ -207,26 +188,25 @@ export function hrBuckets(activities: Activity[], opts: HrBucketOptions = {}): H
 }
 
 /* ------------------------------------------------------------------ */
-/* Cumulative distance                                                 */
+/* Cumulative time                                                     */
 /* ------------------------------------------------------------------ */
 
-export interface CumulativePoint {
-  date: ISODate;
-  /** Running total of distance in meters for the sport (or all sports). */
-  distanceM: number;
-}
-
-/** Running distance total by day, for the "multiples of 70.3" chart. */
-export function cumulativeDistance(activities: Activity[], from: ISODate, to: ISODate, sport?: Sport): CumulativePoint[] {
-  const byDate = new Map<ISODate, number>();
+/**
+ * Running moving-time total per sport, one value per day from `from` to `to`
+ * inclusive (index 0 is `from`). Time, not distance, so indoor rides count.
+ */
+export function cumulativeTime(activities: Activity[], from: ISODate, to: ISODate): Record<SportBucket, number[]> {
+  const days = eachDay(from, to);
+  const index = new Map(days.map((d, i) => [d, i]));
+  const perDay = Object.fromEntries(SPORTS.map((s) => [s, new Array<number>(days.length).fill(0)])) as Record<SportBucket, number[]>;
   for (const a of activities) {
-    if (a.date < from || a.date > to) continue;
-    if (sport && a.sport !== sport) continue;
-    byDate.set(a.date, (byDate.get(a.date) ?? 0) + a.distanceM);
+    const i = index.get(a.date);
+    if (i === undefined) continue;
+    perDay[bucketOf(a.sport)][i] += a.movingTimeSec;
   }
-  let running = 0;
-  return eachDay(from, to).map((date) => {
-    running += byDate.get(date) ?? 0;
-    return { date, distanceM: running };
-  });
+  for (const s of SPORTS) {
+    let acc = 0;
+    perDay[s] = perDay[s].map((sec) => (acc += sec));
+  }
+  return perDay;
 }

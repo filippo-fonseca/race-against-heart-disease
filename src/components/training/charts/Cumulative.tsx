@@ -30,7 +30,7 @@ export function Cumulative({
   daysBetween: (a: string, b: string) => number;
 }) {
   const plot = { x0: LEFT, x1: W - RIGHT, y0: TOP, y1: H - BOTTOM };
-  // Clamp to the program window: before day one there is nothing to draw past x = 0.
+  // Clamp to the training window: before day one there is nothing to draw past x = 0.
   const todayIdx = Math.max(0, Math.min(totalDays, daysBetween(start, today)));
 
   // Per-sport running totals, one point per day through today.

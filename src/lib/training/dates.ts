@@ -63,3 +63,44 @@ export function todayISO(timeZone = "America/Chicago", now = new Date()): ISODat
     day: "2-digit",
   }).format(now);
 }
+
+/* ------------------------------------------------------------------ */
+/* The training window                                                 */
+/* ------------------------------------------------------------------ */
+
+/** Day 1 of training, a Monday. */
+export const TRAINING_START: ISODate = "2026-11-02";
+
+/** Race day (site.race.date, in race-local time) and the last day of the window. */
+export const RACE_DAY: ISODate = "2027-04-04";
+
+/** Days in the window, both ends included: 154. */
+export const TRAINING_DAYS = daysBetween(TRAINING_START, RACE_DAY) + 1;
+
+/** Monday-start weeks in the window: 22, the last ending on race day. */
+export const TRAINING_WEEKS = Math.ceil(TRAINING_DAYS / 7);
+
+/** Day number in the window: November 2 is day 1, race day is day 154. */
+export function dayNumber(date: ISODate): number {
+  return daysBetween(TRAINING_START, date) + 1;
+}
+
+/** Week number in the window: week 1 starts on TRAINING_START. Below 1 before, above 22 after. */
+export function weekNumber(date: ISODate): number {
+  return Math.floor(daysBetween(TRAINING_START, weekStartOf(date)) / 7) + 1;
+}
+
+/** Monday of a given window week. */
+export function weekStartFor(week: number): ISODate {
+  return addDays(TRAINING_START, (week - 1) * 7);
+}
+
+/** Whole days until race day from `today`; negative after the race. */
+export function daysToRace(today: ISODate): number {
+  return daysBetween(today, RACE_DAY);
+}
+
+/** Whether a date falls inside the window. */
+export function inWindow(date: ISODate): boolean {
+  return date >= TRAINING_START && date <= RACE_DAY;
+}

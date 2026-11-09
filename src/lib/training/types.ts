@@ -103,21 +103,18 @@ export interface DayMatch {
 export interface WeeklyTotals {
   /** ISO week start (Monday), YYYY-MM-DD. */
   weekStart: string;
-  athlete: AthleteSlug;
-  bySport: Record<Sport, { timeSec: number; distanceM: number; count: number }>;
+  bySport: Record<SportBucket, { timeSec: number; distanceM: number; count: number }>;
   totalTimeSec: number;
-  plannedTimeSec: number;
 }
 
 export interface TrainingSummary {
-  athlete: AthleteSlug;
   since: string;
   totalTimeSec: number;
   totalDistanceM: number;
   sessions: number;
   /** Consecutive days with at least one activity, counting back from today. */
   streakDays: number;
-  bySport: Record<Sport, { timeSec: number; distanceM: number; count: number }>;
+  bySport: Record<SportBucket, { timeSec: number; distanceM: number; count: number }>;
 }
 
 /**
