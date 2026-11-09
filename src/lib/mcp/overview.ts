@@ -18,19 +18,24 @@ interface ActivityCountRow {
   date: string;
 }
 
+/** Async so a missing Supabase env rejects inside Promise.all instead of throwing while the array is built. */
+async function activityCountRows(): Promise<ActivityCountRow[]> {
+  const { data, error } = await db().from("activities").select("id, athlete_slug, date");
+  if (error) throw error;
+  return (data ?? []) as ActivityCountRow[];
+}
+
 export async function getOverview() {
   const today = todayForAthletes();
   const week = weekOf(today);
   const window = planWindow();
 
-  const [athletes, stats, todayPlan, activityRes] = await Promise.all([
+  const [athletes, stats, todayPlan, rows] = await Promise.all([
     listAthletes(),
     planStats(),
     listPlanSessions({ from: today, to: today }),
-    db().from("activities").select("id, athlete_slug, date"),
+    activityCountRows(),
   ]);
-  if (activityRes.error) throw activityRes.error;
-  const rows = (activityRes.data ?? []) as ActivityCountRow[];
 
   const activities = Object.fromEntries(
     ATHLETE_SLUGS.map((slug) => {
