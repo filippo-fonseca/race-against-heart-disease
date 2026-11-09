@@ -6,7 +6,7 @@ import { ResyncButton } from "./ResyncButton";
 const cell = "num whitespace-nowrap px-3 py-2 text-[0.8rem] first:pl-0 last:pr-0";
 const head = "label whitespace-nowrap px-3 py-2 text-left font-normal first:pl-0 last:pr-0";
 
-/** Section 4: the last twenty activities, read-only, plus the resync control. */
+/** The last twenty activities, read-only, plus the resync control. */
 export function Activities({ rows, error }: { rows: Activity[]; error: string | null }) {
   return (
     <section aria-labelledby="activities-h" className="mt-14">

@@ -71,24 +71,6 @@ export interface Activity {
   detailed: boolean;
 }
 
-/** One prescribed session in the training program. */
-export interface PlanSession {
-  id: string;
-  /** YYYY-MM-DD. Program starts 2026-11-02. */
-  date: string;
-  sport: Sport;
-  title: string;
-  /** Free-text prescription, e.g. "4 × 8 min @ threshold, 3 min easy". */
-  detail: string | null;
-  targetMin: number | null;
-  targetKm: number | null;
-  /** Optional: which athlete(s) this is for. Empty = everyone. */
-  athletes: AthleteSlug[];
-  /** Which training block/phase this belongs to, e.g. "Base 1". */
-  phase: string | null;
-  week: number;
-}
-
 export interface WeeklyTotals {
   /** ISO week start (Monday), YYYY-MM-DD. */
   weekStart: string;
