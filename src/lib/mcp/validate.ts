@@ -6,13 +6,14 @@ import type { AthleteSlug } from "../training/types";
  * touches the database or Next, so tests import it directly.
  */
 
-/** The athletes live and train on US Eastern time. */
+/** The athlete lives and trains on US Eastern time. */
 export const ATHLETE_TIME_ZONE = "America/New_York";
 
-export const ATHLETE_SLUGS: readonly AthleteSlug[] = ["filippo", "emir"];
-
-/** `filippo`, `emir`, or `both` (the tool-level athlete selector). */
-export type AthleteChoice = AthleteSlug | "both";
+/**
+ * The only athlete the site tracks. Typed as AthleteSlug so this compiles
+ * whether that type is just "filippo" or still a union.
+ */
+export const ATHLETE: AthleteSlug = "filippo";
 
 /**
  * A failure the caller (the LLM) can act on. Tools turn it into an MCP error
@@ -49,16 +50,33 @@ export function validateRange(from: unknown, to: unknown, maxDays: number): { fr
   return { from: f, to: t, days };
 }
 
-/** `both` (or nothing) means every athlete; otherwise the one slug. */
-export function athletesFor(choice: AthleteChoice | undefined | null): AthleteSlug[] {
-  if (!choice || choice === "both") return [...ATHLETE_SLUGS];
-  return [choice];
-}
+/** Day 1 of the training window. */
+export const TRAINING_START_DATE: ISODate = "2026-11-02";
 
-/** Plan-row `athletes` value for a choice: empty means everyone. */
-export function planAthletes(choice: AthleteChoice | undefined | null): AthleteSlug[] {
-  if (!choice || choice === "both") return [];
-  return [choice];
+/** Race day: IRONMAN 70.3 Texas, the last day of the window. */
+export const RACE_DAY: ISODate = "2027-04-04";
+
+/**
+ * Where `today` sits in the training window: day 1 is TRAINING_START_DATE
+ * and the last day is RACE_DAY. `day_number` is null outside the window.
+ */
+export function trainingWindow(today: ISODate) {
+  const totalDays = daysBetween(TRAINING_START_DATE, RACE_DAY) + 1;
+  const n = daysBetween(TRAINING_START_DATE, today) + 1;
+  const daysToRace = daysBetween(today, RACE_DAY);
+  let status: string;
+  if (n < 1) status = `Before training: day 1 is ${TRAINING_START_DATE}.`;
+  else if (daysToRace === 0) status = `Race day (day ${n} of ${totalDays}).`;
+  else if (daysToRace < 0) status = "After race day.";
+  else status = `Day ${n} of ${totalDays}, ${daysToRace} days to race day.`;
+  return {
+    start: TRAINING_START_DATE,
+    race_day: RACE_DAY,
+    total_days: totalDays,
+    day_number: n >= 1 && n <= totalDays ? n : null,
+    days_to_race: daysToRace,
+    status,
+  };
 }
 
 /** Today in the athletes' time zone. */

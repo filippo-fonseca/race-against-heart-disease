@@ -1,14 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { deriveId } from "../../admin/plan-import";
-import { weekOf } from "../../training/plan";
 import { keepUploadedPhotos } from "../../training/photos";
-import type { Activity, PlanSession } from "../../training/types";
-import { activityPatch, buildManualActivity, compactActivity, isManualId, manualActivityId, sourceOf } from "../activity-logic";
+import type { Activity } from "../../training/types";
+import { bucketOf, buildStravaCreate, buildStravaUpdate, compactActivity, createSequentially, sportTotals, type PlannedCreate } from "../activity-logic";
 import { checkMcpAuth, extractBearer } from "../auth";
+import { applyPhotoEdit, compactPhoto, pickPhotoTarget, withoutPhoto } from "../photo-edit";
 import { checkImageUrl, decodeBase64Image, imageDimensions, pathFromPublicUrl, sniffImageType, validateImage } from "../photo-logic";
-import { deletePlanScope, normalizeBatch, normalizePlanInput, planUpsertDiff, replaceRangeDiff, uniqueId, type PlanSessionInput } from "../plan-logic";
-import { isRealDate, localStart, McpToolError, validateRange } from "../validate";
+import { isRealDate, localStart, McpToolError, trainingWindow, validateRange } from "../validate";
 
 /* ------------------------------------------------------------------ */
 /* Auth                                                                 */
@@ -58,229 +56,168 @@ test("localStart attaches the New York offset for the day (EST and EDT)", () => 
   assert.throws(() => localStart("2026-11-09", "25:00"), /HH:MM/);
 });
 
-/* ------------------------------------------------------------------ */
-/* Plan: normalisation reuses the admin import's derivation             */
-/* ------------------------------------------------------------------ */
-
-const input = (over: Partial<PlanSessionInput>): PlanSessionInput => ({ date: "2026-11-10", sport: "run", title: "Easy run", ...over });
-
-test("normalizePlanInput derives id, week and phase exactly like the CSV import", () => {
-  const { session, explicitId } = normalizePlanInput(input({ detail: " Z2 ", target_min: 40 }), 0);
-  assert.equal(explicitId, false);
-  assert.equal(session.id, deriveId("2026-11-10", "run", "Easy run"));
-  assert.equal(session.id, "2026-11-10-run-easy-run");
-  assert.equal(session.week, weekOf("2026-11-10").week);
-  assert.equal(session.week, 2);
-  assert.equal(session.phase, "Base 1");
-  assert.equal(session.detail, "Z2");
-  assert.deepEqual(session.athletes, []);
-  assert.deepEqual(normalizePlanInput(input({ athlete: "emir" }), 0).session.athletes, ["emir"]);
-  assert.equal(normalizePlanInput(input({ id: "custom" }), 0).explicitId, true);
+test("trainingWindow numbers the days from Nov 2 to race day", () => {
+  const day1 = trainingWindow("2026-11-02");
+  assert.equal(day1.day_number, 1);
+  assert.equal(day1.total_days, 154);
+  assert.equal(day1.days_to_race, 153);
+  assert.equal(trainingWindow("2026-11-09").day_number, 8);
+  const race = trainingWindow("2027-04-04");
+  assert.equal(race.day_number, 154);
+  assert.equal(race.days_to_race, 0);
+  assert.match(race.status, /Race day/);
+  assert.equal(trainingWindow("2026-11-01").day_number, null);
+  assert.match(trainingWindow("2026-11-01").status, /Before training/);
+  assert.equal(trainingWindow("2027-04-05").day_number, null);
+  assert.equal(trainingWindow("2027-04-05").days_to_race, -1);
 });
 
-test("normalizePlanInput rejects a wrong week, dates outside the program and bad numbers", () => {
-  assert.throws(() => normalizePlanInput(input({ week: 3 }), 0), /falls in week 2/);
-  assert.throws(() => normalizePlanInput(input({ date: "2026-10-30" }), 0), /outside the program/);
-  assert.throws(() => normalizePlanInput(input({ date: "2027-04-05" }), 0), /outside the program/);
-  assert.throws(() => normalizePlanInput(input({ target_min: 12.5 }), 0), /whole number/);
-  assert.throws(() => normalizePlanInput(input({ athlete: "emir" }), 0, { forceAthlete: "filippo" }), /scoped to filippo/);
-});
-
-test("normalizeBatch keeps derived ids unique and refuses duplicate explicit ids", () => {
-  // Same title for different athletes (a 90 min long run for one, 60 for the other) is normal.
-  const ids = normalizeBatch([input({}), input({ athlete: "filippo" }), input({ athlete: "emir" })]).map((n) => n.session.id);
-  assert.deepEqual(ids, ["2026-11-10-run-easy-run", "2026-11-10-run-easy-run-filippo", "2026-11-10-run-easy-run-emir"]);
-  assert.throws(() => normalizeBatch([input({}), input({ title: "Easy  Run!" })]), /same session twice/);
-  assert.throws(() => normalizeBatch([input({ id: "x" }), input({ id: "x", title: "Other" })]), /same id/);
-});
-
-test("uniqueId suffixes with the athlete, then counts", () => {
-  const taken = new Set(["a", "a-filippo"]);
-  assert.equal(uniqueId("b", taken), "b");
-  assert.equal(uniqueId("a", taken, "filippo"), "a-filippo-2");
-  assert.equal(uniqueId("a", new Set(["a"]), "emir"), "a-emir");
-});
-
-/* ------------------------------------------------------------------ */
-/* Plan: upsert and replace-range diffing                               */
-/* ------------------------------------------------------------------ */
-
-function row(over: Partial<PlanSession>): PlanSession {
-  const date = over.date ?? "2026-11-10";
-  const title = over.title ?? "Easy run";
-  const sport = over.sport ?? "run";
-  return {
-    id: deriveId(date, sport, title),
-    date,
-    sport,
-    title,
-    detail: null,
-    targetMin: 40,
-    targetKm: null,
-    athletes: [],
-    phase: "Base 1",
-    week: weekOf(date).week,
-    ...over,
-  };
-}
-
-test("planUpsertDiff updates by natural key, creates otherwise, and never reuses another athlete's id", () => {
-  const shared = row({});
-  const incoming = normalizeBatch([
-    input({ target_min: 50 }), // same date, sport, title, athletes: update
-    input({ athlete: "filippo" }), // same title for filippo only: create with a suffixed id
-    input({ sport: "swim", title: "Technique" }), // new
+test("sportTotals buckets everything that is not swim, bike or run as strength (LIFT)", () => {
+  const totals = sportTotals([
+    { sport: "bike", moving_time_sec: 3600, distance_m: 30000 },
+    { sport: "bike", moving_time_sec: 1800, distance_m: "0" },
+    { sport: "run", moving_time_sec: 2700, distance_m: 8000 },
+    { sport: "strength", moving_time_sec: 1800, distance_m: null },
+    { sport: "other", moving_time_sec: 1800, distance_m: 0 },
   ]);
-  const diff = planUpsertDiff(incoming, [shared]);
-  assert.equal(diff.updates.length, 1);
-  assert.equal(diff.updates[0].after.id, shared.id);
-  assert.deepEqual(diff.updates[0].fields, ["targetMin"]);
-  assert.deepEqual(
-    diff.creates.map((s) => s.id),
-    ["2026-11-10-run-easy-run-filippo", "2026-11-10-swim-technique"],
-  );
-});
-
-test("planUpsertDiff moves a row when an explicit id comes with a new date", () => {
-  const swim = row({ date: "2026-11-12", sport: "swim", title: "Main set" });
-  const diff = planUpsertDiff(normalizeBatch([input({ id: swim.id, date: "2026-11-13", sport: "swim", title: "Main set", target_min: 40 })]), [swim]);
-  assert.equal(diff.creates.length, 0);
-  assert.deepEqual(diff.updates[0].fields, ["date"]);
-  assert.equal(diff.updates[0].after.week, 2);
-  const same = planUpsertDiff(normalizeBatch([input({ id: swim.id, date: "2026-11-12", sport: "swim", title: "Main set", target_min: 40 })]), [swim]);
-  assert.equal(same.unchanged.length, 1);
-});
-
-test("replaceRangeDiff for both athletes keeps matches, updates in place and deletes the rest of the range", () => {
-  const existing = [
-    row({ date: "2026-11-10", sport: "run", title: "Easy run" }),
-    row({ date: "2026-11-10", sport: "swim", title: "Technique" }),
-    row({ date: "2026-11-11", sport: "strength", title: "Knee rehab A" }),
-    row({ date: "2026-11-20", sport: "run", title: "Outside the range" }),
-  ];
-  const incoming = normalizeBatch([
-    input({ date: "2026-11-10", sport: "run", title: "Easy run", target_min: 40 }), // unchanged
-    input({ date: "2026-11-10", sport: "swim", title: "Drills", target_min: 30 }), // lone swim that day: updated in place
-    input({ date: "2026-11-11", sport: "bike", title: "Spin" }), // new
-  ]);
-  const plan = replaceRangeDiff(incoming, existing, { from: "2026-11-10", to: "2026-11-12", athlete: "both" });
-  assert.equal(plan.unchanged, 1);
-  assert.equal(plan.updates.length, 1);
-  assert.equal(plan.updates[0].after.id, "2026-11-10-swim-technique");
-  assert.deepEqual(plan.updates[0].fields.sort(), ["targetMin", "title"].sort());
-  assert.deepEqual(plan.creates.map((s) => s.id), ["2026-11-11-bike-spin"]);
-  assert.deepEqual(plan.deletes.map((s) => s.id), ["2026-11-11-strength-knee-rehab-a"]);
-  assert.equal(plan.narrows.length, 0);
-});
-
-test("replaceRangeDiff with no sessions clears the range", () => {
-  const existing = [row({}), row({ date: "2026-11-12", sport: "swim", title: "Main set" })];
-  const plan = replaceRangeDiff([], existing, { from: "2026-11-10", to: "2026-11-10", athlete: "both" });
-  assert.deepEqual(plan.deletes.map((s) => s.id), [existing[0].id]);
-});
-
-test("replaceRangeDiff for one athlete narrows shared sessions instead of deleting them", () => {
-  const sharedRun = row({ date: "2026-11-10", sport: "run", title: "Easy run" });
-  const sharedSwim = row({ date: "2026-11-10", sport: "swim", title: "Technique" });
-  const emirOnly = row({ date: "2026-11-10", sport: "bike", title: "Spin", id: "emir-spin", athletes: ["emir"] });
-  const filippoOnly = row({ date: "2026-11-11", sport: "strength", title: "Knee rehab A", athletes: ["filippo"] });
-  const incoming = normalizeBatch(
-    [
-      input({ date: "2026-11-10", sport: "run", title: "Easy run", target_min: 30 }), // changed for filippo only
-      input({ date: "2026-11-11", sport: "swim", title: "Recovery swim" }), // new
-    ],
-    { forceAthlete: "filippo" },
-  );
-  const plan = replaceRangeDiff(incoming, [sharedRun, sharedSwim, emirOnly, filippoOnly], { from: "2026-11-10", to: "2026-11-11", athlete: "filippo" });
-
-  // The shared run stays for emir, filippo gets his own shortened copy.
-  // The shared swim filippo dropped stays for emir. Emir's ride is untouched.
-  assert.deepEqual(
-    plan.narrows.map((n) => [n.before.id, n.after.athletes]).sort(),
-    [
-      [sharedRun.id, ["emir"]],
-      [sharedSwim.id, ["emir"]],
-    ].sort(),
-  );
-  assert.deepEqual(plan.creates.map((s) => [s.id, s.athletes, s.targetMin]).sort(), [
-    ["2026-11-10-run-easy-run-filippo", ["filippo"], 30],
-    ["2026-11-11-swim-recovery-swim", ["filippo"], null],
-  ]);
-  assert.deepEqual(plan.deletes.map((s) => s.id), [filippoOnly.id]);
-  assert.equal(plan.updates.length, 0);
-});
-
-test("replaceRangeDiff refuses sessions outside the range", () => {
-  assert.throws(
-    () => replaceRangeDiff(normalizeBatch([input({ date: "2026-11-12" })]), [], { from: "2026-11-10", to: "2026-11-11", athlete: "both" }),
-    /outside the range/,
-  );
-});
-
-test("deletePlanScope deletes for both, and for one athlete narrows shared rows and skips the other's", () => {
-  const shared = row({});
-  const emirOnly = row({ id: "e", athletes: ["emir"] });
-  const filippoOnly = row({ id: "f", athletes: ["filippo"] });
-  assert.equal(deletePlanScope([shared, emirOnly, filippoOnly], "both").deletes.length, 3);
-  const scoped = deletePlanScope([shared, emirOnly, filippoOnly], "filippo");
-  assert.deepEqual(scoped.deletes.map((s) => s.id), ["f"]);
-  assert.deepEqual(scoped.narrows.map((n) => n.after.athletes), [["emir"]]);
-  assert.deepEqual(scoped.skipped.map((s) => s.id), ["e"]);
+  assert.deepEqual(totals.bike, { label: "BIKE", sessions: 2, hours: 1.5, km: 30 });
+  assert.deepEqual(totals.run, { label: "RUN", sessions: 1, hours: 0.8, km: 8 });
+  assert.deepEqual(totals.strength, { label: "LIFT", sessions: 2, hours: 1, km: 0 });
+  assert.deepEqual(totals.swim, { label: "SWIM", sessions: 0, hours: 0, km: 0 });
+  assert.equal(bucketOf("VirtualRide"), "strength", "buckets come from the stored sport, not the Strava type");
+  assert.equal(bucketOf("bike"), "bike");
 });
 
 /* ------------------------------------------------------------------ */
-/* Manual activities                                                    */
+/* Activities: payloads for Strava                                      */
 /* ------------------------------------------------------------------ */
 
-test("manualActivityId is a negative safe integer that cannot meet a Strava id", () => {
-  const now = Date.UTC(2026, 10, 9, 12);
-  const id = manualActivityId(now, 0.4567);
-  assert.equal(id, -(now * 1000 + 456));
-  assert.ok(Number.isSafeInteger(id));
-  assert.ok(id < 0);
-  assert.equal(manualActivityId(now, 0.99999), -(now * 1000 + 999));
-  assert.notEqual(manualActivityId(now, 0.1), manualActivityId(now, 0.2));
-  assert.ok(Number.isSafeInteger(manualActivityId(Date.UTC(2200, 0, 1), 0.999)));
-  assert.equal(isManualId(id), true);
-  assert.equal(isManualId("16812345678"), false);
-  assert.equal(sourceOf(String(id)), "manual");
-});
-
-test("buildManualActivity requires a duration, refuses future dates and keeps unknowns empty", () => {
-  const opts = { id: -1, athlete: "filippo" as const, today: "2026-11-09", index: 0 };
-  const a = buildManualActivity({ athlete: "filippo", sport: "strength", date: "2026-11-09", moving_time_min: 45 }, opts);
-  assert.equal(a.name, "Strength");
-  assert.equal(a.stravaSportType, "WeightTraining");
-  assert.equal(a.movingTimeSec, 2700);
-  assert.equal(a.elapsedTimeSec, 2700);
-  assert.equal(a.startLocal, "2026-11-09T12:00:00-05:00");
-  assert.equal(a.avgHr, null);
-  assert.equal(a.distanceM, 0);
-  const swim = buildManualActivity({ athlete: "filippo", sport: "swim", date: "2026-11-08", start_time: "06:15", moving_time_min: 40, distance_km: 1.8 }, opts);
-  assert.equal(swim.distanceM, 1800);
-  assert.equal(swim.date, "2026-11-08");
-  assert.throws(() => buildManualActivity({ athlete: "filippo", sport: "run", date: "2026-11-10", moving_time_min: 30 }, opts), /future/);
-  assert.throws(() => buildManualActivity({ athlete: "filippo", sport: "run", date: "2026-11-09" }, opts), /moving_time_min is required/);
-});
-
-test("activityPatch maps fields to columns and keeps the clock when only the date moves", () => {
-  const current: Activity = {
-    ...buildManualActivity({ athlete: "emir", sport: "run", date: "2026-11-08", start_time: "07:30", moving_time_min: 30 }, { id: -5, athlete: "emir", today: "2026-11-09", index: 0 }),
-    // As read back from Postgres: the same instant in UTC.
-    startLocal: "2026-11-08T12:30:00+00:00",
-  };
-  const patch = activityPatch(current, { date: "2026-11-07", distance_km: 6.2, sport: "bike", description: null }, "2026-11-09");
-  assert.deepEqual(patch, {
-    description: null,
-    sport: "bike",
-    strava_sport_type: "Ride",
-    date: "2026-11-07",
-    start_local: "2026-11-07T07:30:00-05:00",
-    distance_m: 6200,
+test("buildStravaCreate maps a session to Strava's create fields with sane defaults", () => {
+  const opts = { today: "2026-11-09", index: 0 };
+  assert.deepEqual(buildStravaCreate({ sport: "strength", date: "2026-11-09", duration_min: 45 }, opts), {
+    name: "Lift",
+    sport_type: "HighIntensityIntervalTraining",
+    start_date_local: "2026-11-09T12:00:00",
+    elapsed_time: 2700,
   });
-  assert.throws(() => activityPatch(current, {}, "2026-11-09"), /nothing to update/);
-  assert.throws(() => activityPatch(current, { date: "2026-12-01" }, "2026-11-09"), /future/);
-  assert.equal(compactActivity(current).source, "manual");
+  // An explicit Strava type wins over the bucket default.
+  assert.equal(buildStravaCreate({ sport: "strength", sport_type: "WeightTraining", date: "2026-11-09", duration_min: 45 }, opts).sport_type, "WeightTraining");
+  // Indoor ride: a Ride with trainer set, time without distance.
+  assert.deepEqual(buildStravaCreate({ sport: "bike", trainer: true, date: "2026-11-09", duration_min: 75 }, opts), {
+    name: "Indoor ride",
+    sport_type: "Ride",
+    start_date_local: "2026-11-09T12:00:00",
+    elapsed_time: 4500,
+    trainer: true,
+  });
+  const swim = buildStravaCreate(
+    { sport: "swim", date: "2026-11-08", start_time: "06:15", duration_min: 40.5, distance_km: 1.8, name: " Masters ", description: " 10 x 100 ", trainer: false },
+    opts,
+  );
+  assert.deepEqual(swim, {
+    name: "Masters",
+    sport_type: "Swim",
+    start_date_local: "2026-11-08T06:15:00",
+    elapsed_time: 2430,
+    description: "10 x 100",
+    distance: 1800,
+    trainer: false,
+  });
+  assert.equal(buildStravaCreate({ sport: "bike", sport_type: "VirtualRide", date: "2026-11-09", duration_min: 60 }, opts).sport_type, "VirtualRide");
+});
+
+test("buildStravaCreate refuses future dates, missing durations and bad sport types", () => {
+  const opts = { today: "2026-11-09", index: 2 };
+  assert.throws(() => buildStravaCreate({ sport: "run", date: "2026-11-10", duration_min: 30 }, opts), /activities\[2\]\.date .*future/);
+  assert.throws(() => buildStravaCreate({ sport: "run", date: "2026-11-09" } as never, opts), /duration_min is required/);
+  assert.throws(() => buildStravaCreate({ sport: "run", date: "2026-11-09", duration_min: 0 }, opts), /duration_min is required/);
+  assert.throws(() => buildStravaCreate({ sport: "run", date: "2026-11-09", duration_min: 30, sport_type: "trail run" }, opts), /not a Strava sport type/);
+  assert.throws(() => buildStravaCreate({ sport: "run", date: "2026-11-09", duration_min: 30, start_time: "7:00" }, opts), /HH:MM/);
+  assert.throws(() => buildStravaCreate({ sport: "other", date: "2026-11-09", duration_min: 30 } as never, opts), /swim, bike, run or strength/);
+});
+
+test("buildStravaUpdate sends only Strava-updatable fields and skips no-op sport changes", () => {
+  const ride = { sport: "bike" as const, stravaSportType: "VirtualRide" };
+  assert.deepEqual(buildStravaUpdate(ride, { name: " Zwift ", description: null, trainer: true }), { name: "Zwift", description: "", trainer: true });
+  // Same sport keeps the more specific sport type.
+  assert.throws(() => buildStravaUpdate(ride, { sport: "bike" }), /nothing to update/);
+  assert.deepEqual(buildStravaUpdate(ride, { sport: "run" }), { sport_type: "Run" });
+  assert.deepEqual(buildStravaUpdate(ride, { sport: "run", sport_type: "TrailRun" }), { sport_type: "TrailRun" });
+  assert.throws(() => buildStravaUpdate(ride, { sport_type: "VirtualRide" }), /nothing to update/);
+  assert.deepEqual(buildStravaUpdate(ride, { commute: false, hide_from_home: true }), { commute: false, hide_from_home: true });
+  assert.throws(() => buildStravaUpdate(ride, {}), /nothing to update/);
+  assert.throws(() => buildStravaUpdate(ride, { name: "  " }), /cannot be empty/);
+  // Fields Strava cannot update are not part of the contract at all.
+  assert.throws(() => buildStravaUpdate(ride, { distance_km: 5 } as never), /nothing to update/);
+  // A stored "other" counts as strength, so strength is a no-op and keeps WeightTraining.
+  const weights = { sport: "other" as never, stravaSportType: "WeightTraining" };
+  assert.throws(() => buildStravaUpdate(weights, { sport: "strength" }), /nothing to update/);
+  assert.deepEqual(buildStravaUpdate({ sport: "run" as const, stravaSportType: "Run" }, { sport: "strength" }), { sport_type: "HighIntensityIntervalTraining" });
+});
+
+const plannedCreate = (index: number): PlannedCreate => ({
+  index,
+  athlete: "filippo" as const,
+  payload: { name: `S${index}`, sport_type: "Run", start_date_local: "2026-11-08T12:00:00", elapsed_time: 600 },
+});
+
+test("createSequentially creates in order and finishes when nothing goes wrong", async () => {
+  const seen: number[] = [];
+  const res = await createSequentially([plannedCreate(0), plannedCreate(1)], { nearLimit: () => false, create: async (p) => (seen.push(p.index), p.index * 10) });
+  assert.deepEqual(seen, [0, 1]);
+  assert.deepEqual(res, { done: [0, 10], remaining: [], stopped: null });
+});
+
+test("createSequentially stops before the rate limit and on the first failure", async () => {
+  let calls = 0;
+  const limited = await createSequentially([plannedCreate(0), plannedCreate(1), plannedCreate(2)], {
+    nearLimit: () => calls >= 1,
+    create: async () => ++calls,
+  });
+  assert.deepEqual(limited.done, [1]);
+  assert.deepEqual(limited.remaining.map((p) => p.index), [1, 2]);
+  assert.equal(limited.stopped?.reason, "rate_limit");
+
+  const failed = await createSequentially([plannedCreate(0), plannedCreate(1), plannedCreate(2)], {
+    nearLimit: () => false,
+    create: async (p) => {
+      if (p.index === 1) throw new Error("Strava refused the write");
+      return p.index;
+    },
+  });
+  assert.deepEqual(failed.done, [0]);
+  assert.deepEqual(failed.remaining.map((p) => p.index), [1, 2]);
+  assert.equal(failed.stopped?.reason, "error");
+  assert.equal(failed.stopped?.item?.index, 1);
+  assert.match(failed.stopped?.message ?? "", /refused/);
+});
+
+test("compactActivity links to Strava and carries no manual source", () => {
+  const a: Activity = {
+    id: "16812345678",
+    athlete: "filippo",
+    sport: "run",
+    stravaSportType: "Run",
+    name: "Easy",
+    description: null,
+    startLocal: "2026-11-08T07:30:00-05:00",
+    date: "2026-11-08",
+    movingTimeSec: 1800,
+    elapsedTimeSec: 1860,
+    distanceM: 6234,
+    elevationGainM: 12.4,
+    avgHr: 140,
+    maxHr: null,
+    avgWatts: null,
+    effort: null,
+    photos: [],
+    detailed: true,
+  };
+  const c = compactActivity(a);
+  assert.equal(c.strava_url, "https://www.strava.com/activities/16812345678");
+  assert.equal(c.moving_time_min, 30);
+  assert.equal(c.distance_km, 6.23);
+  assert.equal("source" in c, false);
 });
 
 /* ------------------------------------------------------------------ */
@@ -351,11 +288,81 @@ test("checkImageUrl allows public http(s) and blocks local or private hosts", ()
 });
 
 test("pathFromPublicUrl and keepUploadedPhotos", () => {
-  assert.equal(pathFromPublicUrl("https://x.supabase.co/storage/v1/object/public/training-photos/filippo/-1/upload-a.jpg"), "filippo/-1/upload-a.jpg");
+  assert.equal(pathFromPublicUrl("https://x.supabase.co/storage/v1/object/public/training-photos/filippo/16800000001/upload-a.jpg"), "filippo/16800000001/upload-a.jpg");
   assert.equal(pathFromPublicUrl("https://dgalywyr863hv.cloudfront.net/pictures/1.jpg"), null);
   const strava = { id: "s1", url: "https://cdn/1.jpg", width: null, height: null, caption: null };
   const upload = { id: "upload-1", url: "https://x/1.jpg", width: 10, height: 10, caption: null };
   assert.deepEqual(keepUploadedPhotos([strava], [strava, upload]), [strava, upload]);
   assert.deepEqual(keepUploadedPhotos([strava], [{ ...strava, id: "old-strava" }]), [strava]);
   assert.deepEqual(keepUploadedPhotos([], null), []);
+});
+
+/* ------------------------------------------------------------------ */
+/* Photos: lookup and editing                                           */
+/* ------------------------------------------------------------------ */
+
+const day = (id: string, date: string, sport: string) => ({ id, date, sport });
+
+test("pickPhotoTarget attaches to a single match and hands back zero or several", () => {
+  const acts = [day("1", "2026-11-08", "run"), day("2", "2026-11-09", "bike"), day("3", "2026-11-09", "strength"), day("4", "2026-11-09", "other")];
+  assert.deepEqual(pickPhotoTarget(acts, { date: "2026-11-08" }, bucketOf), { kind: "one", activity: acts[0] });
+  assert.deepEqual(pickPhotoTarget(acts, { date: "2026-11-07" }, bucketOf), { kind: "none" });
+  const many = pickPhotoTarget(acts, { date: "2026-11-09" }, bucketOf);
+  assert.equal(many.kind, "many");
+  assert.deepEqual(many.kind === "many" && many.candidates.map((a) => a.id), ["2", "3", "4"]);
+  // A sport narrows it: bike is unique that day; strength covers "other" too, so it is still ambiguous.
+  assert.deepEqual(pickPhotoTarget(acts, { date: "2026-11-09", sport: "bike" }, bucketOf), { kind: "one", activity: acts[1] });
+  const lifts = pickPhotoTarget(acts, { date: "2026-11-09", sport: "strength" }, bucketOf);
+  assert.deepEqual(lifts.kind === "many" && lifts.candidates.map((a) => a.id), ["3", "4"]);
+  assert.deepEqual(pickPhotoTarget(acts, { date: "2026-11-09", sport: "swim" }, bucketOf), { kind: "none" });
+});
+
+const sPhoto = (id: string) => ({ id, url: `https://cdn.cloudfront.net/${id}.jpg`, width: 1200, height: 900, caption: null });
+const uPhoto = (n: number, caption: string | null = null) => ({ id: `upload-${n}`, url: `https://x.supabase.co/storage/v1/object/public/training-photos/filippo/1/upload-${n}.jpg`, width: 800, height: 600, caption });
+
+test("compactPhoto labels Strava photos read-only and added photos editable", () => {
+  assert.deepEqual(compactPhoto(sPhoto("s1"), 0), { id: "s1", position: 1, source: "strava", editable: false, url: "https://cdn.cloudfront.net/s1.jpg", caption: null, width: 1200, height: 900 });
+  assert.equal(compactPhoto(uPhoto(1), 2).source, "mcp");
+  assert.equal(compactPhoto(uPhoto(1), 2).editable, true);
+  assert.equal(compactPhoto(uPhoto(1), 2).position, 3);
+});
+
+test("applyPhotoEdit changes captions and replaces images in place, never Strava photos", () => {
+  const photos = [sPhoto("s1"), uPhoto(1, "old"), uPhoto(2)];
+  assert.deepEqual(applyPhotoEdit(photos, { photo_id: "upload-1", caption: "  Mile 6 " })[1], { ...uPhoto(1), caption: "Mile 6" });
+  assert.equal(applyPhotoEdit(photos, { photo_id: "upload-1", caption: null })[1].caption, null);
+  assert.equal(applyPhotoEdit(photos, { photo_id: "upload-1", caption: "" })[1].caption, null);
+
+  const replacement = { ...uPhoto(9), width: 4000, height: 3000 };
+  const replaced = applyPhotoEdit(photos, { photo_id: "upload-1", replacement });
+  assert.deepEqual(replaced.map((p) => p.id), ["s1", "upload-9", "upload-2"]);
+  assert.equal(replaced[1].caption, "old", "a replaced image keeps its caption");
+  assert.equal(applyPhotoEdit(photos, { photo_id: "upload-1", replacement, caption: "new" })[1].caption, "new");
+
+  assert.throws(() => applyPhotoEdit(photos, { photo_id: "s1", caption: "x" }), /comes from Strava and is read-only/);
+  assert.throws(() => applyPhotoEdit(photos, { photo_id: "upload-7", caption: "x" }), /no photo upload-7/);
+  assert.throws(() => applyPhotoEdit(photos, { caption: "x" }), /photo_id is required/);
+  assert.throws(() => applyPhotoEdit(photos, {}), /Nothing to update/);
+  assert.throws(() => applyPhotoEdit(photos, { photo_id: "upload-1", caption: "x".repeat(301) }), /longer than 300/);
+});
+
+test("applyPhotoEdit reorders the added photos and keeps Strava photos first", () => {
+  const photos = [sPhoto("s1"), uPhoto(1), sPhoto("s2"), uPhoto(2), uPhoto(3)];
+  assert.deepEqual(applyPhotoEdit(photos, { order: ["upload-3", "upload-1", "upload-2"] }).map((p) => p.id), ["s1", "s2", "upload-3", "upload-1", "upload-2"]);
+  // Reorder and caption together; the caption follows the photo.
+  const both = applyPhotoEdit(photos, { order: ["upload-2", "upload-3", "upload-1"], photo_id: "upload-1", caption: "last" });
+  assert.deepEqual(both.map((p) => [p.id, p.caption]).slice(2), [["upload-2", null], ["upload-3", null], ["upload-1", "last"]]);
+  assert.throws(() => applyPhotoEdit(photos, { order: ["upload-1", "upload-2"] }), /missing: upload-3/);
+  assert.throws(() => applyPhotoEdit(photos, { order: ["upload-1", "upload-1", "upload-2"] }), /more than once/);
+  assert.throws(() => applyPhotoEdit(photos, { order: ["s1", "upload-1", "upload-2", "upload-3"] }), /read-only/);
+  assert.throws(() => applyPhotoEdit(photos, { order: ["upload-1", "upload-2", "upload-x"] }), /not a photo added/);
+});
+
+test("withoutPhoto removes an added photo and refuses Strava photos", () => {
+  const photos = [sPhoto("s1"), uPhoto(1), uPhoto(2)];
+  const { photos: rest, removed } = withoutPhoto(photos, "upload-1");
+  assert.deepEqual(rest.map((p) => p.id), ["s1", "upload-2"]);
+  assert.equal(removed.id, "upload-1");
+  assert.throws(() => withoutPhoto(photos, "s1"), /read-only/);
+  assert.throws(() => withoutPhoto(photos, "upload-5"), /no photo upload-5/);
 });

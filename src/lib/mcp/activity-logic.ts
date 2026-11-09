@@ -1,81 +1,231 @@
 import type { ISODate } from "../training/dates";
-import type { Activity, AthleteSlug, Sport } from "../training/types";
-import { assertDate, ATHLETE_TIME_ZONE, localStart, McpToolError, type AthleteChoice } from "./validate";
+import type { CreateActivityInput, UpdateActivityInput } from "../training/strava";
+import type { Activity, AthleteSlug } from "../training/types";
+import { compactPhoto } from "./photo-edit";
+import { assertDate, isClock, McpToolError } from "./validate";
 
 /**
- * Pure helpers for activities logged through MCP (sessions that are not on
- * Strava). No database, no Next: tests import this directly.
+ * Pure helpers for the activity tools. No database, no Next, no network:
+ * tests import this directly.
  *
- * Manual rows live in `training.activities` next to Strava rows. Strava ids
- * are positive, so manual rows get negative ids: they can never collide, the
- * Strava sync never lists them (it only fetches ids Strava returns), and
- * `id < 0` is how every reader tells the two apart without a new column.
+ * Strava is the only source of activities. log_activities and
+ * update_activity turn the bot's request into Strava API payloads here; the
+ * tools then call Strava and pull the result back into the Supabase mirror.
+ * Nothing in this module produces a mirror row on its own.
  */
 
-/** Whether an activity id belongs to a manually logged session. */
-export function isManualId(id: number | string): boolean {
-  return Number(id) < 0;
+/**
+ * The four buckets the site reports: swim, bike, run, and strength (shown
+ * as LIFT), which covers HIIT, weights and anything that is not one of the
+ * other three. Defined here rather than taken from types.ts so the tools do
+ * not depend on how many values `Sport` has.
+ */
+export const SPORT_BUCKETS = ["swim", "bike", "run", "strength"] as const;
+export type SportBucket = (typeof SPORT_BUCKETS)[number];
+
+export const BUCKET_LABEL: Record<SportBucket, string> = { swim: "SWIM", bike: "BIKE", run: "RUN", strength: "LIFT" };
+
+/** Bucket of a stored activity's `sport` (anything but swim, bike or run is strength). */
+export function bucketOf(sport: string | null | undefined): SportBucket {
+  return sport === "swim" || sport === "bike" || sport === "run" ? sport : "strength";
 }
 
-export type ActivitySource = "manual" | "strava";
+export interface TotalsRow {
+  sport: string | null;
+  moving_time_sec: number | null;
+  distance_m: number | string | null;
+}
 
-export function sourceOf(id: number | string): ActivitySource {
-  return isManualId(id) ? "manual" : "strava";
+export interface BucketTotals {
+  label: string;
+  sessions: number;
+  hours: number;
+  km: number;
+}
+
+/** Sessions, hours and km per bucket (every bucket present, zeros included). */
+export function sportTotals(rows: TotalsRow[]): Record<SportBucket, BucketTotals> {
+  const acc = Object.fromEntries(SPORT_BUCKETS.map((b) => [b, { sec: 0, m: 0, n: 0 }])) as Record<SportBucket, { sec: number; m: number; n: number }>;
+  for (const r of rows) {
+    const t = acc[bucketOf(r.sport)];
+    t.n += 1;
+    t.sec += r.moving_time_sec ?? 0;
+    t.m += Number(r.distance_m ?? 0) || 0;
+  }
+  return Object.fromEntries(
+    SPORT_BUCKETS.map((b) => [b, { label: BUCKET_LABEL[b], sessions: acc[b].n, hours: round(acc[b].sec / 3600, 1), km: round(acc[b].m / 1000, 1) }]),
+  ) as Record<SportBucket, BucketTotals>;
 }
 
 /**
- * A fresh negative id: milliseconds since the epoch times 1000 plus three
- * random digits, negated. Stays inside Number.MAX_SAFE_INTEGER until the
- * year 2255 and inside Postgres bigint forever; two ids collide only when
- * minted in the same millisecond with the same random suffix.
+ * The Strava sport_type sent for each bucket when the caller gives none.
+ * Strength defaults to HIIT, the usual session; the bot passes an explicit
+ * sport_type (WeightTraining, Crossfit, Yoga...) when the athlete says so.
+ * An indoor ride is a Ride with trainer set (or an explicit VirtualRide).
  */
-export function manualActivityId(now: number = Date.now(), random: number = Math.random()): number {
-  const suffix = Math.min(999, Math.max(0, Math.floor(random * 1000)));
-  return -(Math.floor(now) * 1000 + suffix);
-}
-
-/* ------------------------------------------------------------------ */
-/* Building and patching manual rows                                    */
-/* ------------------------------------------------------------------ */
-
-/** The Strava sport_type a manual row carries, so the UI labels it like a synced one. */
-export const SPORT_TYPE_FOR: Record<Sport, string> = {
+export const SPORT_TYPE_FOR: Record<SportBucket, string> = {
   swim: "Swim",
   bike: "Ride",
   run: "Run",
-  strength: "WeightTraining",
-  other: "Workout",
+  strength: "HighIntensityIntervalTraining",
 };
 
-const DEFAULT_NAME: Record<Sport, string> = {
+const DEFAULT_NAME: Record<SportBucket, string> = {
   swim: "Swim",
   bike: "Ride",
   run: "Run",
-  strength: "Strength",
-  other: "Workout",
+  strength: "Lift",
 };
 
 /** Start time used when the caller does not give one (noon keeps the date safe in any zone). */
 export const DEFAULT_START = "12:00";
 
-/** Metric fields shared by log_activities and update_activity. */
-export interface ActivityMetrics {
-  moving_time_min?: number | null;
-  elapsed_time_min?: number | null;
-  distance_km?: number | null;
-  elevation_m?: number | null;
-  avg_hr?: number | null;
-  max_hr?: number | null;
-  avg_watts?: number | null;
+/** Strava SportType names are single CamelCase words ("VirtualRide", "TrailRun"). */
+const SPORT_TYPE_RE = /^[A-Z][A-Za-z]{1,39}$/;
+
+function checkSportType(value: string, where: string): string {
+  const v = value.trim();
+  if (!SPORT_TYPE_RE.test(v)) throw new McpToolError(`${where} "${value}" is not a Strava sport type (one CamelCase word, e.g. VirtualRide, TrailRun, Yoga).`);
+  return v;
 }
 
-export interface ManualActivityInput extends ActivityMetrics {
-  athlete: AthleteChoice;
-  sport: Sport;
+/** One session for log_activities, as the bot sends it. */
+export interface LogActivityInput {
+  sport: SportBucket;
+  /** Overrides the bucket's default, e.g. "VirtualRide" or "WeightTraining". */
+  sport_type?: string | null;
   date: string;
   start_time?: string | null;
   name?: string | null;
   description?: string | null;
+  /** Total minutes; Strava stores it as elapsed (and moving) time. */
+  duration_min: number;
+  distance_km?: number | null;
+  trainer?: boolean | null;
+  commute?: boolean | null;
+}
+
+/**
+ * The `POST /activities` payload for one session. Refuses future dates and
+ * missing or silly durations; distance stays off unless the athlete gave it.
+ * `start_date_local` is wall-clock time without an offset: Strava reads it
+ * in the athlete's own time zone, which is what the bot was told.
+ */
+export function buildStravaCreate(input: LogActivityInput, opts: { today: ISODate; index: number }): CreateActivityInput {
+  const where = `activities[${opts.index}]`;
+  const date = assertDate(input.date, `${where}.date`);
+  if (date > opts.today) {
+    throw new McpToolError(`${where}.date ${date} is in the future (today is ${opts.today}). Log sessions only after they happen.`);
+  }
+  const minutes = input.duration_min;
+  if (typeof minutes !== "number" || !Number.isFinite(minutes) || minutes <= 0 || minutes > 1440) {
+    throw new McpToolError(`${where}.duration_min is required (minutes, 1 to 1440): ask how long the session was instead of guessing.`);
+  }
+  const km = input.distance_km;
+  if (km != null && (!Number.isFinite(km) || km < 0 || km > 1000)) throw new McpToolError(`${where}.distance_km must be between 0 and 1000.`);
+  const clock = input.start_time ?? DEFAULT_START;
+  if (!isClock(clock)) throw new McpToolError(`${where}.start_time "${clock}" must be HH:MM (24 hour).`);
+
+  if (!(SPORT_BUCKETS as readonly string[]).includes(input.sport)) {
+    throw new McpToolError(`${where}.sport "${String(input.sport)}" must be swim, bike, run or strength.`);
+  }
+  const fallbackName = input.sport === "bike" && input.trainer ? "Indoor ride" : DEFAULT_NAME[input.sport];
+  const payload: CreateActivityInput = {
+    name: (input.name ?? "").trim() || fallbackName,
+    sport_type: input.sport_type ? checkSportType(input.sport_type, `${where}.sport_type`) : SPORT_TYPE_FOR[input.sport],
+    start_date_local: `${date}T${clock}:00`,
+    elapsed_time: Math.round(minutes * 60),
+  };
+  const description = (input.description ?? "").trim();
+  if (description) payload.description = description;
+  if (km != null && km > 0) payload.distance = Math.round(km * 1000);
+  if (input.trainer != null) payload.trainer = input.trainer;
+  if (input.commute != null) payload.commute = input.commute;
+  return payload;
+}
+
+/** Fields update_activity may change: exactly what Strava's API can update. */
+export interface ActivityUpdateFields {
+  name?: string | null;
+  /** null or "" clears it. */
+  description?: string | null;
+  sport?: SportBucket | null;
+  sport_type?: string | null;
+  trainer?: boolean | null;
+  commute?: boolean | null;
+  hide_from_home?: boolean | null;
+}
+
+/**
+ * The `PUT /activities/{id}` payload for an update_activity request. A sport
+ * change only sends a new sport_type when the bucket really changes, so
+ * "bike" on a VirtualRide keeps it virtual and "strength" on WeightTraining
+ * keeps it weights. Throws on an empty patch.
+ */
+export function buildStravaUpdate(current: Pick<Activity, "sport" | "stravaSportType">, fields: ActivityUpdateFields): UpdateActivityInput {
+  const patch: UpdateActivityInput = {};
+  if (fields.name !== undefined && fields.name !== null) {
+    const name = fields.name.trim();
+    if (name.length === 0) throw new McpToolError("fields.name cannot be empty.");
+    patch.name = name;
+  }
+  if (fields.description !== undefined) patch.description = (fields.description ?? "").trim();
+  if (fields.sport_type) {
+    patch.sport_type = checkSportType(fields.sport_type, "fields.sport_type");
+  } else if (fields.sport && fields.sport !== bucketOf(current.sport)) {
+    patch.sport_type = SPORT_TYPE_FOR[fields.sport];
+  }
+  if (patch.sport_type === current.stravaSportType) delete patch.sport_type;
+  if (fields.trainer != null) patch.trainer = fields.trainer;
+  if (fields.commute != null) patch.commute = fields.commute;
+  if (fields.hide_from_home != null) patch.hide_from_home = fields.hide_from_home;
+  if (Object.keys(patch).length === 0) throw new McpToolError("fields is empty (or matches the activity already): nothing to update.");
+  return patch;
+}
+
+/** One Strava create the bulk loop will attempt. */
+export interface PlannedCreate {
+  index: number;
+  athlete: AthleteSlug;
+  payload: CreateActivityInput;
+}
+
+export interface SequentialResult<R> {
+  done: R[];
+  /** Items never attempted (rate limit) or after the failing one. */
+  remaining: PlannedCreate[];
+  stopped: null | { reason: "rate_limit" | "error"; message: string; item?: PlannedCreate };
+}
+
+/**
+ * Run creates one at a time. Before each one, stop if Strava's rate limit is
+ * close; on the first failure, stop too (the next calls would most likely
+ * fail the same way, and a half-applied batch is easier to report than to
+ * untangle). Strava activities cannot be deleted through the API, so nothing
+ * is retried blindly.
+ */
+export async function createSequentially<R>(
+  items: PlannedCreate[],
+  deps: { create: (item: PlannedCreate) => Promise<R>; nearLimit: () => boolean },
+): Promise<SequentialResult<R>> {
+  const done: R[] = [];
+  for (let i = 0; i < items.length; i++) {
+    if (deps.nearLimit()) {
+      return { done, remaining: items.slice(i), stopped: { reason: "rate_limit", message: "Strava's rate limit is nearly used up; try the remaining sessions again in 15 minutes." } };
+    }
+    try {
+      done.push(await deps.create(items[i]));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { done, remaining: items.slice(i), stopped: { reason: "error", message, item: items[i] } };
+    }
+  }
+  return { done, remaining: [], stopped: null };
+}
+
+/** Link to the activity on Strava (where deleting and other edits happen). */
+export function stravaActivityUrl(id: number | string): string {
+  return `https://www.strava.com/activities/${id}`;
 }
 
 function round(n: number, places: number): number {
@@ -83,139 +233,12 @@ function round(n: number, places: number): number {
   return Math.round(n * f) / f;
 }
 
-function checkMetrics(m: ActivityMetrics, where: string): void {
-  const inRange = (v: number | null | undefined, label: string, max: number) => {
-    if (v === null || v === undefined) return;
-    if (!Number.isFinite(v) || v < 0 || v > max) throw new McpToolError(`${where}.${label} must be between 0 and ${max}.`);
-  };
-  inRange(m.moving_time_min, "moving_time_min", 1440);
-  inRange(m.elapsed_time_min, "elapsed_time_min", 1440);
-  inRange(m.distance_km, "distance_km", 1000);
-  inRange(m.elevation_m, "elevation_m", 10000);
-  inRange(m.avg_hr, "avg_hr", 250);
-  inRange(m.max_hr, "max_hr", 250);
-  inRange(m.avg_watts, "avg_watts", 2000);
-}
-
-/**
- * A manual activity row for one athlete. Requires moving_time_min (the log
- * and every total are time based); everything else is optional and stays
- * null or zero rather than guessed. Dates after `today` are refused.
- */
-export function buildManualActivity(
-  input: ManualActivityInput,
-  opts: { id: number; athlete: AthleteSlug; today: ISODate; index: number },
-): Activity {
-  const where = `activities[${opts.index}]`;
-  const date = assertDate(input.date, `${where}.date`);
-  if (date > opts.today) {
-    throw new McpToolError(`${where}.date ${date} is in the future (today is ${opts.today}). Log sessions after they happen; plan future ones with the plan tools.`);
-  }
-  checkMetrics(input, where);
-  const moving = input.moving_time_min;
-  if (moving === null || moving === undefined || moving <= 0) {
-    throw new McpToolError(`${where}.moving_time_min is required: ask how long the session was instead of guessing.`);
-  }
-  const elapsed = input.elapsed_time_min ?? moving;
-  return {
-    id: String(opts.id),
-    athlete: opts.athlete,
-    sport: input.sport,
-    stravaSportType: SPORT_TYPE_FOR[input.sport],
-    name: (input.name ?? "").trim() || DEFAULT_NAME[input.sport],
-    description: (input.description ?? "").trim() || null,
-    startLocal: localStart(date, input.start_time ?? DEFAULT_START),
-    date,
-    movingTimeSec: Math.round(moving * 60),
-    elapsedTimeSec: Math.round(Math.max(elapsed, moving) * 60),
-    distanceM: Math.round((input.distance_km ?? 0) * 1000),
-    elevationGainM: Math.round(input.elevation_m ?? 0),
-    avgHr: input.avg_hr ?? null,
-    maxHr: input.max_hr ?? null,
-    avgWatts: input.avg_watts ?? null,
-    effort: null,
-    photos: [],
-    detailed: true,
-  };
-}
-
-/** Fields update_activity may change. `null` clears a nullable field. */
-export interface ActivityPatchInput extends ActivityMetrics {
-  name?: string | null;
-  description?: string | null;
-  sport?: Sport | null;
-  date?: string | null;
-  start_time?: string | null;
-}
-
-/** Column patch for `training.activities`. */
-export interface ActivityColumnPatch {
-  name?: string;
-  description?: string | null;
-  sport?: Sport;
-  strava_sport_type?: string;
-  date?: string;
-  start_local?: string;
-  moving_time_sec?: number;
-  elapsed_time_sec?: number;
-  distance_m?: number;
-  elevation_gain_m?: number;
-  avg_hr?: number | null;
-  max_hr?: number | null;
-  avg_watts?: number | null;
-}
-
-/** HH:MM wall clock of an ISO instant in `timeZone`. */
-export function localClock(iso: string, timeZone = ATHLETE_TIME_ZONE): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return DEFAULT_START;
-  return new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d);
-}
-
-/**
- * Turn an update_activity request into a column patch against `current`.
- * Changing the date or start time rewrites start_local in the athletes'
- * zone (keeping whichever of the two was not given). Changing the sport of a
- * manual row also updates its sport_type label. Throws on an empty patch.
- */
-export function activityPatch(current: Activity, fields: ActivityPatchInput, today: ISODate): ActivityColumnPatch {
-  const patch: ActivityColumnPatch = {};
-  checkMetrics(fields, "fields");
-  if (fields.name !== undefined && fields.name !== null) {
-    const name = fields.name.trim();
-    if (name.length === 0) throw new McpToolError("fields.name cannot be empty.");
-    patch.name = name;
-  }
-  if (fields.description !== undefined) patch.description = (fields.description ?? "").trim() || null;
-  if (fields.sport) {
-    patch.sport = fields.sport;
-    if (isManualId(current.id)) patch.strava_sport_type = SPORT_TYPE_FOR[fields.sport];
-  }
-  if (fields.date || fields.start_time) {
-    const date = fields.date ? assertDate(fields.date, "fields.date") : current.date;
-    if (date > today) throw new McpToolError(`fields.date ${date} is in the future (today is ${today}).`);
-    const clock = fields.start_time ?? localClock(current.startLocal);
-    patch.date = date;
-    patch.start_local = localStart(date, clock);
-  }
-  if (fields.moving_time_min != null) patch.moving_time_sec = Math.round(fields.moving_time_min * 60);
-  if (fields.elapsed_time_min != null) patch.elapsed_time_sec = Math.round(fields.elapsed_time_min * 60);
-  if (fields.distance_km != null) patch.distance_m = Math.round(fields.distance_km * 1000);
-  if (fields.elevation_m != null) patch.elevation_gain_m = Math.round(fields.elevation_m);
-  if (fields.avg_hr !== undefined) patch.avg_hr = fields.avg_hr;
-  if (fields.max_hr !== undefined) patch.max_hr = fields.max_hr;
-  if (fields.avg_watts !== undefined) patch.avg_watts = fields.avg_watts;
-  if (Object.keys(patch).length === 0) throw new McpToolError("fields is empty: nothing to update.");
-  return patch;
-}
-
 /** Snake-case, LLM-friendly view of an activity. */
 export function compactActivity(a: Activity) {
   return {
     id: a.id,
-    source: sourceOf(a.id),
-    athlete: a.athlete,
-    sport: a.sport,
+    sport: bucketOf(a.sport),
+    sport_label: BUCKET_LABEL[bucketOf(a.sport)],
     sport_type: a.stravaSportType,
     name: a.name,
     date: a.date,
@@ -229,6 +252,7 @@ export function compactActivity(a: Activity) {
     avg_watts: a.avgWatts,
     effort: a.effort,
     description: a.description,
-    photos: a.photos.map((p) => ({ id: p.id, url: p.url, caption: p.caption })),
+    photos: a.photos.map(compactPhoto),
+    strava_url: stravaActivityUrl(a.id),
   };
 }

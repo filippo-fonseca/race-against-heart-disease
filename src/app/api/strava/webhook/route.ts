@@ -1,14 +1,19 @@
 import { after, type NextRequest } from "next/server";
 import { revalidateTag } from "next/cache";
 import { loadAthleteRowByStravaId } from "@/lib/training/db";
-import { TRAINING_CACHE_TAG } from "@/lib/training/queries";
+import { getActivity, TRAINING_CACHE_TAG } from "@/lib/training/queries";
 import { deleteActivity, syncActivity } from "@/lib/training/sync";
+import { removeStoredPhotos } from "@/lib/mcp/photo-storage";
 
 /**
- * Strava push subscription endpoint.
+ * Strava push subscription endpoint, and the way every change on Strava
+ * (recorded, created or edited by the MCP tools, edited or deleted in the
+ * Strava app) reaches the mirror.
  * GET  answers the one-time hub.challenge handshake.
  * POST acknowledges events immediately (Strava expects a 200 within two
- *      seconds) and does the activity fetch after the response is sent.
+ *      seconds) and does the work after the response is sent: `create` and
+ *      `update` refetch the activity, `delete` removes the row and any
+ *      photos uploaded to it through the MCP server.
  */
 
 export const maxDuration = 30;
@@ -59,7 +64,10 @@ async function handleActivityEvent(event: StravaEvent) {
       return;
     }
     if (event.aspect_type === "delete") {
+      // Strava is the source of truth: once it is gone there, it goes here.
+      const existing = await getActivity(event.object_id);
       await deleteActivity(event.object_id);
+      if (existing) await removeStoredPhotos(existing.photos);
     } else {
       await syncActivity(athlete, event.object_id);
     }

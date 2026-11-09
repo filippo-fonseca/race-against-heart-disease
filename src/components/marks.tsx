@@ -33,7 +33,7 @@ export function Lockup({ className = "" }: { className?: string }) {
 
 /**
  * Postage stamp. Perforated edge comes from the `.stamp` mask in globals.css.
- * The event is referenced in type only; the IRONMAN M-dot is a registered mark.
+ * The event is referenced in type only here; the IRONMAN wordmark (a registered mark) appears only as the hero image.
  */
 export function Stamp({ className = "" }: { className?: string }) {
   return (

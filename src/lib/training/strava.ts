@@ -6,11 +6,32 @@ import { saveAthleteTokens, type AthleteRow } from "./db";
  * Typed Strava v3 client. Only the handful of endpoints the training log
  * needs. Every call goes through `stravaFetch`, which records the rate-limit
  * headers so `sync.ts` can stop before Strava starts returning 429s.
+ *
+ * Strava is the source of truth for activities: the site only reads them
+ * (through the Supabase mirror), and the MCP tools write through
+ * `createActivity` / `updateActivity` here, never to the mirror directly.
  */
 
 export const STRAVA_API = "https://www.strava.com/api/v3";
 export const STRAVA_OAUTH = "https://www.strava.com/oauth";
-export const STRAVA_SCOPE = "activity:read_all";
+/** Every scope the app needs: read (including private) and write activities. */
+export const STRAVA_SCOPES = ["activity:read_all", "activity:write"] as const;
+/** Comma-separated form Strava's authorize URL expects. */
+export const STRAVA_SCOPE = STRAVA_SCOPES.join(",");
+
+/**
+ * Required scopes missing from the `scope` Strava echoes back on the OAuth
+ * redirect (a comma-separated list of what the athlete actually ticked).
+ */
+export function missingScopes(granted: string | null | undefined): string[] {
+  const have = new Set(
+    (granted ?? "")
+      .split(/[\s,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
+  return STRAVA_SCOPES.filter((s) => !have.has(s));
+}
 
 // Payload shapes (subset of the Strava API reference).
 
@@ -95,6 +116,23 @@ export class StravaError extends Error {
   }
 }
 
+/**
+ * Strava refused a write (401/403). With a freshly refreshed token that
+ * almost always means the athlete authorized before the app asked for
+ * `activity:write`, or revoked access; re-running the auth script fixes both.
+ */
+export class StravaWriteAccessError extends StravaError {
+  constructor(status: number, body: string) {
+    super(
+      `Strava refused the write (HTTP ${status}): the stored token lacks activity:write permission or was revoked. ` +
+        "Re-run `npm run strava:auth` to grant write access.",
+      status,
+      body,
+    );
+    this.name = "StravaWriteAccessError";
+  }
+}
+
 let lastRateLimit: StravaRateLimit | null = null;
 
 /** Rate-limit state from the most recent Strava response, if any. */
@@ -157,7 +195,9 @@ export function authorizeUrl(redirectUri: string): string {
     client_id,
     response_type: "code",
     redirect_uri: redirectUri,
-    approval_prompt: "auto",
+    // Always show the consent page so an athlete who granted read-only
+    // access earlier is asked again for activity:write.
+    approval_prompt: "force",
     scope: STRAVA_SCOPE,
   });
   return `${STRAVA_OAUTH}/authorize?${params}`;
@@ -325,6 +365,95 @@ export function normalizeActivity(
     photos,
     detailed,
   };
+}
+
+// Writes (scope activity:write)
+
+/**
+ * Fields for `POST /activities` (a manual activity). Strava stores no heart
+ * rate, power or elevation for manual entries, so none are offered.
+ */
+export interface CreateActivityInput {
+  name: string;
+  /** Strava SportType, e.g. "Run", "Ride", "Swim", "WeightTraining". */
+  sport_type: string;
+  /** Local wall-clock start, ISO 8601 without offset ("2026-11-09T06:30:00"). */
+  start_date_local: string;
+  /** Seconds. */
+  elapsed_time: number;
+  description?: string | null;
+  /** Meters. */
+  distance?: number | null;
+  trainer?: boolean;
+  commute?: boolean;
+}
+
+/** The `UpdatableActivity` fields of `PUT /activities/{id}`. */
+export interface UpdateActivityInput {
+  name?: string;
+  sport_type?: string;
+  /** An empty string clears it. */
+  description?: string;
+  trainer?: boolean;
+  commute?: boolean;
+  hide_from_home?: boolean;
+  /** "none" removes the gear. */
+  gear_id?: string;
+}
+
+async function stravaWrite<T>(path: string, init: RequestInit & { token: string }): Promise<T> {
+  try {
+    return await stravaFetch<T>(path, init);
+  } catch (err) {
+    if (err instanceof StravaError && (err.status === 401 || err.status === 403)) {
+      throw new StravaWriteAccessError(err.status, err.body);
+    }
+    throw err;
+  }
+}
+
+/** Form body for `createActivity`; Strava documents this endpoint as form data. */
+export function createActivityForm(input: CreateActivityInput): URLSearchParams {
+  const form = new URLSearchParams({
+    name: input.name,
+    sport_type: input.sport_type,
+    start_date_local: input.start_date_local,
+    elapsed_time: String(Math.round(input.elapsed_time)),
+  });
+  if (input.description) form.set("description", input.description);
+  if (input.distance != null) form.set("distance", String(input.distance));
+  if (input.trainer !== undefined) form.set("trainer", input.trainer ? "1" : "0");
+  if (input.commute !== undefined) form.set("commute", input.commute ? "1" : "0");
+  return form;
+}
+
+/** Create a manual activity on Strava. Returns the new activity (with its `id`). */
+export async function createActivity(
+  token: string,
+  input: CreateActivityInput,
+): Promise<StravaDetailedActivity> {
+  return stravaWrite<StravaDetailedActivity>(`/activities`, {
+    method: "POST",
+    token,
+    body: createActivityForm(input),
+  });
+}
+
+/**
+ * Update an activity's editable fields on Strava (JSON body of
+ * `UpdatableActivity`). Returns the updated activity.
+ */
+export async function updateActivity(
+  token: string,
+  id: number | string,
+  input: UpdateActivityInput,
+): Promise<StravaDetailedActivity> {
+  return stravaWrite<StravaDetailedActivity>(`/activities/${id}`, {
+    method: "PUT",
+    token,
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
 }
 
 // Webhook subscriptions (used by scripts/strava-subscribe.ts)
