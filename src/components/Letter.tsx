@@ -63,9 +63,11 @@ export function Letter() {
       </div>
       <SocialRow className="rise mt-2.5" size="sm" />
       <details className="rise group mx-auto mt-2 max-w-[560px] text-center">
-        <summary className="label inline-flex cursor-pointer list-none items-center gap-1.5 hover:text-red [&::-webkit-details-marker]:hidden">
+        <summary className="inline-flex h-10 cursor-pointer list-none items-center gap-2 rounded-full bg-paper px-5 text-[0.95rem] font-semibold text-ink shadow-[0_0_0_1px_var(--rule),0_1px_2px_rgba(20,20,20,0.06)] transition-[background-color,color,transform] hover:bg-desk active:scale-[0.97] group-open:bg-ink group-open:text-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red [&::-webkit-details-marker]:hidden">
           About me
-          <span className="transition-transform group-open:rotate-180" aria-hidden="true">▾</span>
+          <svg viewBox="0 0 12 12" className="h-3 w-3 transition-transform group-open:rotate-180" aria-hidden="true">
+            <path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </summary>
         <div className="mt-3 space-y-3 rounded-xl bg-desk px-5 py-4 text-left font-serif text-[1.05rem] leading-relaxed text-ink-soft">
           {site.author.about.map((p) => (
