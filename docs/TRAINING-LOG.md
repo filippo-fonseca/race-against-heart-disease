@@ -4,9 +4,40 @@ The `/training` page is an automated daily log of the build toward IRONMAN 70.3 
 
 ## Data flow
 
+**Strava is the single source of truth for activities.** The data flows one way: Strava to the Supabase mirror to the site. `training.activities` is only a cache filled from Strava (webhook, cron, backfill, and the immediate resync after an MCP write). Nothing writes activity rows any other way, so the site cannot drift from Strava. When the Grok bot logs or edits an activity, it does so through the Strava API (`createActivity` / `updateActivity` in `src/lib/training/strava.ts`), and the change comes back down the same path as a workout recorded on a watch.
+
+```
+                    MCP write tools (Grok bot)
+                    log_activities / update_activity
+                               |
+                               | Strava API (activity:write)
+                               v
+  watch / Strava app ---> [ STRAVA ] ----------------------------+
+                               |                                 |
+           webhook (create, update, delete)        cron, backfill, resync_strava,
+                               |                   immediate resync after a write
+                               v                                 |
+                  /api/strava/webhook, sync.ts <-----------------+
+                               |
+                               v
+             Supabase training.activities  (read-only cache of Strava)
+                               |
+                               v
+             queries.ts -> loadTraining() ("use cache") -> /training, homepage
+
+  Local only (no Strava equivalent):
+    training.plan_sessions  <- /admin CSV upload, MCP plan tools
+    uploaded photos         <- MCP add_photo (Supabase Storage, keyed by Strava id)
+```
+
+Deleting an activity happens only in the Strava app (Strava's API has no delete endpoint); the webhook's `delete` event then removes the row and any uploaded photos. Every write path revalidates the `training` cache tag.
+
+The pieces, in code:
+
 ```
 Strava ──webhook──▶ /api/strava/webhook ──▶ fetch activity detail (+photos) ──▶ Supabase
 Strava ◀──backfill── /api/strava/sync (Vercel cron, daily 06:00 UTC; Hobby plan allows daily only, webhooks cover real time) ─────────────▶ Supabase
+MCP log_activities / update_activity ──▶ Strava API ──▶ syncActivity ──▶ Supabase
 Supabase ──▶ src/lib/training/queries.ts ──▶ /training (server components, ISR 5 min)
 Supabase (training.plan_sessions) ──▶ src/lib/training/plan.ts ──▶ matcher ──▶ /training
 /admin CSV upload ──▶ src/lib/admin/plan-import.ts ──▶ Supabase (training.plan_sessions)
@@ -67,9 +98,11 @@ MCP_TOKEN=                          # bearer token for /api/mcp (Grok bot); unse
 
 ## Athlete onboarding (one time, each)
 
-`npm run strava:auth -- --athlete filippo` opens the Strava OAuth consent page (scope `activity:read_all`), catches the redirect on `http://localhost:4567/callback`, exchanges the code, and upserts the athlete row with tokens. Then `npm run strava:backfill -- --athlete filippo --since 2026-11-02`.
+`npm run strava:auth -- --athlete filippo` opens the Strava OAuth consent page (scopes `activity:read_all,activity:write`; write lets the MCP tools create and edit activities on Strava), catches the redirect on `http://localhost:4567/callback`, exchanges the code, and upserts the athlete row with tokens. Then `npm run strava:backfill -- --athlete filippo --since 2026-11-02`.
 
 Webhook subscription is created once with `npm run strava:subscribe` (needs the deployed URL).
+
+**Re-authorizing for write access (one time).** Athletes who linked Strava before the app asked for `activity:write` only granted read access. Re-run `npm run strava:auth -- --athlete <slug>` for each of them and leave both permission boxes ticked; the script refuses to save tokens unless every required scope was granted. Until then the MCP write tools fail for that athlete with the same instruction, while reading and syncing keep working.
 
 ## Code ownership
 

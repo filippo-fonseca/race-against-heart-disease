@@ -2,6 +2,8 @@
 
 The site runs a remote [Model Context Protocol](https://modelcontextprotocol.io) server so the owner's Grok bot can read and edit the training backend: the plan, the activity log, session photos, the Strava sync and the fundraising total. Everything the bot writes shows up on `/training` and the homepage on the next page load.
 
+**Strava is the single source of truth for activities.** The activity tools never write activity data to Supabase on their own: `log_activities` and `update_activity` call the Strava API with the athlete's token, then pull the result back into the Supabase mirror (`syncActivity`) so the site updates at once. Deleting happens in the Strava app, because Strava's API has no delete endpoint; the webhook then removes the activity from the site. Two things have no Strava equivalent and stay local: the training plan (`training.plan_sessions`) and photos uploaded through `add_photo` (Supabase Storage, keyed by the Strava activity id). See the data flow in [TRAINING-LOG.md](TRAINING-LOG.md#data-flow).
+
 - **URL:** `https://race-against-heart-disease.vercel.app/api/mcp`
 - **Transport:** Streamable HTTP, stateless (each POST is a complete JSON-RPC exchange; no sessions). Built on `mcp-handler` 2.3.0 and `@modelcontextprotocol/server` 2.3.1, so it answers both the 2025-era protocol (`2025-06-18` and earlier Streamable HTTP clients) and the 2026-07-28 revision.
 - **Code:** route `src/app/api/mcp/route.ts`; tool registry `src/lib/mcp/server.ts`; tool bodies in `src/lib/mcp/*-tools.ts`; pure logic (tested) in `src/lib/mcp/*-logic.ts`, `validate.ts`, `auth.ts`; tests in `src/lib/mcp/__tests__/`.
@@ -24,7 +26,18 @@ The admin proxy (`src/proxy.ts`) matches only `/admin/**` and `/api/admin/**`, s
 | --- | --- |
 | `MCP_TOKEN` | Required. The bearer token. Generate a long random value, e.g. `openssl rand -base64 32`, and set it in Vercel (Production) and in the bot's config. Rotate by changing both. |
 | `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Already required by the training log (docs/TRAINING-LOG.md). The service role also creates and writes the photo bucket. |
-| `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET` | Already required; used by `resync_strava`. |
+| `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET` | Already required; used to refresh athlete tokens for every Strava read and write. |
+
+### One-time Strava re-authorization (write access)
+
+The activity tools need the `activity:write` scope on top of `activity:read_all`. Athletes who linked Strava before this change only granted read access, so each of them re-runs the auth script once and leaves both permission boxes ticked:
+
+```bash
+npm run strava:auth -- --athlete filippo
+npm run strava:auth -- --athlete emir
+```
+
+The script always shows the consent page and refuses to save tokens unless both scopes were granted. Until an athlete re-authorizes, `log_activities` and `update_activity` fail for them with a message saying exactly this; reads, the webhook and `resync_strava` keep working.
 | `DONORDRIVE_PARTICIPANT_ID` | Optional; without it `get_fundraising` returns placeholder numbers with `live: false`. |
 
 ## Conventions
@@ -41,7 +54,7 @@ The admin proxy (`src/proxy.ts`) matches only `/admin/**` and `/api/admin/**`, s
 ### Read
 
 **`get_overview`** `{}`
-Today's date (America/New_York), race date and days to go, both athletes and whether Strava is linked, plan coverage (first and last date, session count, last update), current program week and phase with its Monday and Sunday, each athlete's sessions planned today, and activity counts (Strava vs manual, last activity date). The bot should call it first in every conversation.
+Today's date (America/New_York), race date and days to go, both athletes and whether Strava is linked, plan coverage (first and last date, session count, last update), current program week and phase with its Monday and Sunday, each athlete's sessions planned today, and activity counts (total and last activity date). The bot should call it first in every conversation.
 
 ```json
 { "name": "get_overview", "arguments": {} }
@@ -58,7 +71,7 @@ Planned sessions in an inclusive range of at most 200 days, sorted by date, plus
 ```
 
 **`list_activities`** `{ from, to, athlete? }`
-Completed activities in an inclusive range of at most 200 days, newest first: `id`, `source` (`strava` or `manual`), athlete, sport, name, date, start, moving and elapsed minutes, km, elevation, heart rate, watts, effort, description, and photos (`id`, `url`, `caption`).
+Completed activities in an inclusive range of at most 200 days, newest first, read from the Supabase mirror of Strava: `id` (the Strava activity id), athlete, sport, `sport_type`, name, date, start, moving and elapsed minutes, km, elevation, heart rate, watts, effort, description, photos (`id`, `url`, `caption`) and `strava_url`.
 
 ### Plan writes
 
@@ -103,33 +116,38 @@ Delete by `ids`, or everything in a range (both `from` and `to`, at most 62 days
 { "name": "delete_plan_sessions", "arguments": { "from": "2026-11-14", "to": "2026-11-14", "athlete": "emir", "dry_run": true } }
 ```
 
-### Activity writes
+### Activity writes (through Strava)
 
-**`log_activities`** `{ activities: [...] }`
-Record up to 50 sessions that are not on Strava. Each: `athlete` (`both` logs one row per athlete), `sport`, `date` (not in the future), `moving_time_min` (required), and optionally `start_time` (`HH:MM`, America/New_York; default 12:00), `name`, `description`, `elapsed_time_min`, `distance_km`, `elevation_m`, `avg_hr`, `max_hr`, `avg_watts`. Returns the new ids and warnings when the same athlete already has an activity of that sport on that day.
+These tools write to the athlete's Strava with the token stored in `training.athletes`, then mirror the result with `syncActivity` and revalidate the cache. The webhook later delivers the same change again; the upsert is idempotent. An athlete who has not linked Strava, or linked it without write access, gets an error telling the owner to run `npm run strava:auth -- --athlete <slug>`.
+
+**`log_activities`** `{ activities: [...], allow_duplicates? }`
+Creates up to 25 unrecorded sessions as manual activities on Strava (`POST /activities`). Each: `athlete` (`both` creates one activity on each athlete's Strava), `sport`, `date` (not in the future), `duration_min` (required; Strava stores it as elapsed and moving time), and optionally `sport_type` (an exact Strava sport type such as `VirtualRide`, overriding the sport default `Swim`, `Ride`, `Run`, `WeightTraining` or `Workout`), `start_time` (`HH:MM` local wall clock, default 12:00), `name`, `description`, `distance_km`, `trainer`, `commute`. Strava's manual activities cannot hold heart rate, power or elevation, so the tool does not take them; the bot puts such numbers in the description if the athlete mentions them.
+
+- Everything is validated, and each athlete's Strava link checked, before the first request.
+- If the athlete already has an activity of the same sport that day, nothing is created and the clashes are listed, unless `allow_duplicates: true` (Strava activities cannot be deleted through the API, so a duplicate would need a trip to the Strava app).
+- Sessions are created one at a time. Before each, the call stops if fewer than 10 Strava requests remain in the rate-limit window; on the first failure it also stops. `stopped_early` then lists what was not logged.
+- Returns `logged`, `requested`, the new Strava `ids`, the mirrored `activities`, `sync_errors` (created on Strava but not yet mirrored; the webhook or `resync_strava` fixes those) and `warnings`.
 
 ```json
 {
   "name": "log_activities",
   "arguments": {
     "activities": [
-      { "athlete": "filippo", "sport": "strength", "date": "2026-11-09", "start_time": "18:30", "name": "Knee rehab A", "moving_time_min": 40, "description": "Spanish squats, split squats, step-downs. Knee felt fine." }
+      { "athlete": "filippo", "sport": "strength", "date": "2026-11-09", "start_time": "18:30", "name": "Knee rehab A", "duration_min": 40, "description": "Spanish squats, split squats, step-downs. Knee felt fine." }
     ]
   }
 }
 ```
 
-Manual rows live in `training.activities` with **negative ids** (minted from the clock plus a random suffix), so they can never collide with Strava's positive ids, the Strava sync never touches them, and `id < 0` marks them as manual everywhere (`source: "manual"` in tool output). No schema change is needed. The row's `raw` column records `{ "source": "manual", "via": "mcp" }`. If an athlete has no row in `training.athletes` yet (Strava never linked), a bare row is created so the foreign key holds.
-
 **`update_activity`** `{ id, fields }`
-Change `name`, `description`, `sport`, `date`, `start_time`, `moving_time_min`, `elapsed_time_min`, `distance_km`, `elevation_m`, `avg_hr`, `max_hr`, `avg_watts`. Only given fields change; `null` clears description, heart rate or watts. On a Strava activity the edit holds until the activity is edited on Strava: the webhook then re-fetches it and Strava's values win.
+Edits one activity on Strava (`PUT /activities/{id}`) and re-mirrors it. `fields` holds exactly what Strava's `UpdatableActivity` allows: `name`, `description` (`null` or `""` clears it), `sport` (sends the default sport type, and only if the sport actually changes, so a `VirtualRide` stays virtual), `sport_type` (exact, takes priority), `trainer`, `commute`, `hide_from_home`. Date, start time, duration, distance, heart rate and power cannot be changed through Strava's API; the athlete edits those in the Strava app and the webhook brings the change in.
 
 ```json
 { "name": "update_activity", "arguments": { "id": "16123456789", "fields": { "name": "Brick: ride + 15 min run", "description": "Legs heavy off the bike." } } }
 ```
 
 **`delete_activity`** `{ id }`
-Deletes the row and any photos uploaded to it. A deleted Strava activity comes back on the next sync unless it is also deleted on Strava, so this is mainly for manual entries.
+Deletes nothing. Strava's public API has no delete endpoint, and removing the row here would only make the site drift from Strava until the next sync. The tool returns the activity, its `strava_url` and instructions to delete it in the Strava app or website (Actions menu, then Delete). Once that happens, the webhook's `delete` event removes the row and any photos uploaded to it. It is kept as a tool (rather than removed) so the bot has a definite answer and a link to give when an athlete asks to delete something.
 
 **`resync_strava`** `{ athlete?, since?, budget? }`
 Runs the same `syncAthlete` as the cron for the chosen athletes (default both, since 2026-11-02). `budget` (default 10, max 25 per athlete) caps the full detail and photo fetches so the call fits the route's 60 second limit; anything beyond is stored as a summary and detailed by the next run.
@@ -139,6 +157,7 @@ Runs the same `syncAthlete` as the cron for the chosen athletes (default both, s
 **`add_photo`** `{ athlete, activity_id?, date?, image_url?, image_base64?, mime_type?, caption? }`
 Stores one photo and appends it to the activity's photo strip on `/training`.
 
+- Photos stay on this server: Strava's API cannot upload photos. They are keyed by the Strava activity id, and the target must already be in the mirror (any positive Strava id that `list_activities` returns).
 - Target: `activity_id`, or `athlete` + `date` to use that athlete's only activity that day. Several activities that day is an error listing them; none is an error suggesting `log_activities` (or `resync_strava`) first.
 - Image: exactly one of `image_url` or `image_base64`.
   - `image_url` is fetched by the server (20 second timeout, http or https, public hosts only). A Telegram bot can pass the file URL it gets from `getFile` (`https://api.telegram.org/file/bot<token>/<file_path>`); the URL is never stored or echoed back, only the image.
@@ -228,7 +247,7 @@ Responses arrive as a one-event SSE stream (`event: message` / `data: {...}`). T
 
 ## Limits and caveats
 
-- Ranges: lists up to 200 days; replace and ranged delete up to 62 days; 200 sessions per upsert, 300 per replace, 50 activities per log call.
+- Ranges: lists up to 200 days; replace and ranged delete up to 62 days; 200 sessions per upsert, 300 per replace, 25 activities per log call (each costs about three Strava requests: create, detail, and a token refresh now and then).
 - The route's `maxDuration` is 60 seconds, the same as the Strava cron route.
-- Strava is the source of truth for Strava activities: edits, deletes and photo removals made here can be undone by Strava's own webhook or sync. Manual activities and uploaded photos are never touched by Strava.
+- Strava is the source of truth for activities. The mirror is only a cache filled from Strava (webhook, cron, backfill, and the immediate resync after an MCP write); nothing writes activity rows any other way. Removing a Strava photo here is undone by the next detail sync unless it is removed on Strava too. Uploaded photos and the plan are never touched by Strava.
 - `get_overview` counts activities from one query, so counts cap at Supabase's 1000-row page; that is several seasons of training for two athletes.
