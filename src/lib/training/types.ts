@@ -25,7 +25,11 @@ export function bucketOf(sport: Sport): SportBucket {
   return sport === "other" ? "strength" : sport;
 }
 
-export type AthleteSlug = "filippo" | "emir";
+/** The site follows one athlete. Kept as a type so the DB column stays explicit. */
+export type AthleteSlug = "filippo";
+
+/** The only athlete the site loads. */
+export const ATHLETE: AthleteSlug = "filippo";
 
 export interface Athlete {
   slug: AthleteSlug;

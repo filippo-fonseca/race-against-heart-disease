@@ -28,7 +28,7 @@ export function Activities({ rows, error }: { rows: Activity[]; error: string | 
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-ink">
-                {["Date", "Start", "Athlete", "Sport", "Name", "Time", "Km", "HR", "Detail"].map((h) => (
+                {["Date", "Start", "Sport", "Name", "Time", "Km", "HR", "Detail"].map((h) => (
                   <th key={h} scope="col" className={head}>
                     {h}
                   </th>
@@ -40,7 +40,6 @@ export function Activities({ rows, error }: { rows: Activity[]; error: string | 
                 <tr key={a.id} className="border-b border-rule align-top">
                   <td className={cell}>{a.date}</td>
                   <td className={`${cell} text-ink-soft`}>{fmtClock(a.startLocal)}</td>
-                  <td className={cell}>{a.athlete}</td>
                   <td className={cell}>
                     <SportPill sport={a.sport} />
                   </td>

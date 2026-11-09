@@ -4,10 +4,10 @@ import { RACE_DAY, TRAINING_START } from "./dates";
 import { TRAINING_CACHE_TAG, listActivities, listAthletes } from "./queries";
 
 /**
- * What the /training page reads. One cached Supabase round trip for both
- * athletes and every activity in the training window (Nov 2 to race day); the page filters
- * in memory. Everything time-dependent (today, the athlete filter) stays
- * outside the cache so the entry is keyed only on the data.
+ * What /training and the homepage Strava card read. One cached Supabase round
+ * trip for Filippo's athlete row and every activity of his in the training
+ * window (Nov 2 to race day). Everything time-dependent (today) stays outside
+ * the cache so the entry is keyed only on the data.
  */
 export interface TrainingData {
   athletes: Athlete[];
@@ -16,11 +16,8 @@ export interface TrainingData {
   error: string | null;
 }
 
-/** The two slugs the plan knows about, used until the athletes table has rows. */
-export const DEFAULT_ATHLETES: Athlete[] = [
-  { slug: "filippo", name: "Filippo", stravaId: null, avatarUrl: null },
-  { slug: "emir", name: "Emir", stravaId: null, avatarUrl: null },
-];
+/** Filippo, used until the athletes table has his row. */
+export const DEFAULT_ATHLETE: Athlete = { slug: "filippo", name: "Filippo", stravaId: null, avatarUrl: null };
 
 const EMPTY: TrainingData = { athletes: [], activities: [], error: null };
 
@@ -60,11 +57,7 @@ export async function loadTraining(): Promise<TrainingData> {
   return data;
 }
 
-/**
- * The athletes to show: every known slug, with the DB row's name and avatar
- * where one exists. Guarantees the toggle has both names even before the
- * athletes table is populated.
- */
-export function resolveAthletes(fromDb: Athlete[]): Athlete[] {
-  return DEFAULT_ATHLETES.map((d) => fromDb.find((a) => a.slug === d.slug) ?? d);
+/** Filippo's athlete record: the DB row when there is one, else the default. */
+export function resolveAthlete(fromDb: Athlete[]): Athlete {
+  return fromDb.find((a) => a.slug === DEFAULT_ATHLETE.slug) ?? DEFAULT_ATHLETE;
 }

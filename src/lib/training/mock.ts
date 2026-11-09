@@ -5,13 +5,12 @@
  * a spread of photo counts so the gallery layouts all get exercised.
  */
 
-import type { Activity, ActivityPhoto, Athlete, SportBucket } from "./types";
+import type { Activity, ActivityPhoto, SportBucket } from "./types";
 import { TRAINING_START, addDays, eachDay, weekdayIndex } from "./dates";
 
 /** The fixtures pretend it is this day: a Thursday in week 6. */
 export const MOCK_TODAY = "2026-12-10";
 
-export const mockAthletes: Athlete[] = [{ slug: "filippo", name: "Filippo", stravaId: 1001, avatarUrl: null }];
 
 function mulberry32(seed: number) {
   let a = seed >>> 0;

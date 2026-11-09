@@ -7,7 +7,7 @@ import type {
   AthleteSlug,
   Sport,
 } from "./types";
-import { bucketOf, toSport } from "./types";
+import { ATHLETE, bucketOf, toSport } from "./types";
 
 /**
  * Server-only Supabase access for the training log. Uses the service-role key,
@@ -153,12 +153,12 @@ export function toActivityRow(activity: Activity, raw: unknown = null): Activity
   };
 }
 
-/** Load every athlete row, tokens included. Server use only. */
+/** Filippo's athlete row as a list (the site follows only him), tokens included. Server use only. */
 export async function loadAthleteRows(): Promise<AthleteRow[]> {
   const { data, error } = await db()
     .from("athletes")
     .select("*")
-    .order("slug");
+    .eq("slug", ATHLETE);
   if (error) throw error;
   return (data ?? []) as AthleteRow[];
 }

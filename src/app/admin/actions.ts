@@ -49,7 +49,7 @@ export async function resyncStrava(): Promise<ResyncState> {
       return `${r.athlete}: ${r.listed} listed, ${r.upserted} upserted, ${r.detailed} detailed${errs}`;
     });
     revalidatePath("/admin");
-    return { status: "done", summary: summary.length ? summary : ["No athletes with Strava tokens."], at: new Date().toISOString() };
+    return { status: "done", summary: summary.length ? summary : ["No Strava tokens yet: run npm run strava:auth."], at: new Date().toISOString() };
   } catch (err) {
     return { status: "error", message: err instanceof Error ? err.message : String(err) };
   }
