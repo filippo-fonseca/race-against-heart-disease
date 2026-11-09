@@ -60,7 +60,10 @@ STRAVA_WEBHOOK_VERIFY_TOKEN=        # any random string
 CRON_SECRET=                        # Vercel cron auth
 NEXT_PUBLIC_SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
+MCP_TOKEN=                          # bearer token for /api/mcp (Grok bot); unset = endpoint off (503)
 ```
+
+`MCP_TOKEN` gates the MCP server the owner's Grok bot uses to edit the plan, log sessions and attach photos. See [MCP.md](MCP.md).
 
 ## Athlete onboarding (one time, each)
 

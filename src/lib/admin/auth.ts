@@ -1,7 +1,8 @@
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection, type NextRequest } from "next/server";
+import { safeEqual } from "../safe-equal";
 
 /**
  * Single-admin auth for /admin. The password lives in ADMIN_PASSWORD and is
@@ -27,13 +28,6 @@ const LOGIN_PATH = "/admin/login";
 function sessionSecret(): string | null {
   const s = process.env.ADMIN_SESSION_SECRET;
   return s && s.length >= 16 ? s : null;
-}
-
-/** Constant-time equality over SHA-256 digests, so lengths never leak. */
-function safeEqual(a: string, b: string): boolean {
-  const ha = createHash("sha256").update(a, "utf8").digest();
-  const hb = createHash("sha256").update(b, "utf8").digest();
-  return timingSafeEqual(ha, hb);
 }
 
 /** True when `candidate` matches ADMIN_PASSWORD. False when the env is unset. */

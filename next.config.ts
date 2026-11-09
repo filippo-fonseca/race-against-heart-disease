@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "picsum.photos" },
       { protocol: "https", hostname: "dgalywyr863hv.cloudfront.net" },
       { protocol: "https", hostname: "*.cloudfront.net" },
+      // Photos uploaded through the MCP server (public `training-photos` bucket).
+      { protocol: "https", hostname: "*.supabase.co", pathname: "/storage/v1/object/public/training-photos/**" },
     ],
   },
   turbopack: {
