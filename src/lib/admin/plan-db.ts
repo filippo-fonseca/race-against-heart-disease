@@ -76,13 +76,19 @@ export function sortPlan(sessions: PlanSession[]): PlanSession[] {
   return [...sessions].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 
-/** Every session in the program, sorted by date then id. */
-export async function listPlanSessions(): Promise<PlanSession[]> {
-  const { data, error } = await db()
+/**
+ * Every session in the program, sorted by date then id. `from` / `to`
+ * (inclusive, YYYY-MM-DD) narrow it to a date range.
+ */
+export async function listPlanSessions(range: { from?: string; to?: string } = {}): Promise<PlanSession[]> {
+  let q = db()
     .from("plan_sessions")
     .select(PLAN_COLUMNS)
     .order("date")
     .order("id");
+  if (range.from) q = q.gte("date", range.from);
+  if (range.to) q = q.lte("date", range.to);
+  const { data, error } = await q;
   if (error) throw error;
   return ((data ?? []) as unknown as PlanSessionRow[]).map(toPlanSession);
 }
