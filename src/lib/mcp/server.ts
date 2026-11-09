@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { getFundraisingSummary, getOverview } from "./overview";
 import { deletePlan, listPlan, replacePlanRange, upsertPlan } from "./plan-tools";
+import { deleteActivityTool, listActivitiesTool, logActivities, resyncStrava, updateActivityTool } from "./activity-tools";
 import { McpToolError } from "./validate";
 
 /**
@@ -182,5 +183,118 @@ export function registerTools(server: McpServer): void {
       annotations: DESTRUCTIVE,
     },
     run(async (args) => deletePlan(args)),
+  );
+
+  /* ---------------------------------------------------------------- */
+  /* Activities                                                         */
+  /* ---------------------------------------------------------------- */
+
+  server.registerTool(
+    "list_activities",
+    {
+      title: "List completed activities",
+      description:
+        "What the athletes actually did between from and to (inclusive, at most 200 days), newest first: Strava activities plus manually logged ones. Each has id, source (strava or manual), athlete, sport, name, date, start_local, moving_time_min, elapsed_time_min, distance_km, elevation_m, avg_hr, max_hr, avg_watts, effort, description and photos (id, url, caption). Use it before logging to avoid duplicates and to find ids for update_activity, delete_activity and add_photo.",
+      inputSchema: z.object({
+        from: date("First day"),
+        to: date("Last day, inclusive"),
+        athlete: athleteChoice.optional(),
+      }),
+      annotations: READ_ONLY,
+    },
+    run(async (args) => listActivitiesTool(args)),
+  );
+
+  server.registerTool(
+    "log_activities",
+    {
+      title: "Log sessions that are not on Strava",
+      description:
+        "Record completed sessions that will never arrive from Strava (a gym session without a watch, a pool swim not recorded, a class). Do not use it for anything already on Strava: check list_activities first, and if the athlete just finished a recorded workout, wait for Strava or call resync_strava. moving_time_min is required; pass only numbers the athlete actually said, never estimates. athlete both logs one copy per athlete. Dates cannot be in the future. Returns the new ids (negative numbers mark manual rows) and warnings about likely duplicates.",
+      inputSchema: z.object({
+        activities: z
+          .array(
+            z.object({
+              athlete: athleteChoice.describe("Who did it: filippo, emir, or both (one row each)."),
+              sport,
+              date: date("Day it happened, in America/New_York"),
+              start_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:MM, 24 hour.").nullish().describe("Local start time HH:MM (24 hour), America/New_York. Omit if unknown (stored as 12:00)."),
+              name: z.string().max(120).nullish().describe('Title, e.g. "Masters swim" or "Leg day". Defaults to the sport.'),
+              description: z.string().max(4000).nullish().describe("Notes in the athlete's words: the main set, how it felt."),
+              moving_time_min: z.number().positive().max(1440).describe("Moving time in minutes (required)."),
+              elapsed_time_min: z.number().positive().max(1440).nullish().describe("Total elapsed minutes including breaks. Defaults to moving time."),
+              distance_km: z.number().min(0).max(1000).nullish().describe("Distance in km (swims too: 2 means 2000 m)."),
+              elevation_m: z.number().min(0).max(10000).nullish().describe("Elevation gain in meters."),
+              avg_hr: z.number().min(0).max(250).nullish().describe("Average heart rate, bpm."),
+              max_hr: z.number().min(0).max(250).nullish().describe("Max heart rate, bpm."),
+              avg_watts: z.number().min(0).max(2000).nullish().describe("Average power, watts."),
+            }),
+          )
+          .min(1)
+          .max(50),
+      }),
+      annotations: { ...WRITE, idempotentHint: false },
+    },
+    run(async (args) => logActivities(args)),
+  );
+
+  server.registerTool(
+    "update_activity",
+    {
+      title: "Edit an activity",
+      description:
+        "Change fields of one activity (manual or Strava): name, description, sport, date, start_time, durations, distance, elevation, heart rate, power. Only the fields you pass change; null clears description, avg_hr, max_hr or avg_watts. Caution for Strava activities: when the activity is edited on Strava, the next webhook update overwrites the Strava-sourced fields here, so tell the athlete to edit it on Strava as well. Manual activities (negative ids) are never touched by Strava.",
+      inputSchema: z.object({
+        id: z.union([z.string(), z.number()]).describe("Activity id from list_activities."),
+        fields: z
+          .object({
+            name: z.string().max(120).nullish(),
+            description: z.string().max(4000).nullish(),
+            sport: sport.nullish(),
+            date: date("New day").nullish(),
+            start_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:MM, 24 hour.").nullish().describe("New local start time HH:MM, America/New_York."),
+            moving_time_min: z.number().positive().max(1440).nullish(),
+            elapsed_time_min: z.number().positive().max(1440).nullish(),
+            distance_km: z.number().min(0).max(1000).nullish(),
+            elevation_m: z.number().min(0).max(10000).nullish(),
+            avg_hr: z.number().min(0).max(250).nullish(),
+            max_hr: z.number().min(0).max(250).nullish(),
+            avg_watts: z.number().min(0).max(2000).nullish(),
+          })
+          .describe("Only the fields to change."),
+      }),
+      annotations: WRITE,
+    },
+    run(async (args) => updateActivityTool(args)),
+  );
+
+  server.registerTool(
+    "delete_activity",
+    {
+      title: "Delete an activity",
+      description:
+        "Delete one activity and any photos uploaded to it. Confirm with the user first. Deleting a Strava activity here is temporary: the next Strava sync brings it back unless it is also deleted on Strava. Use it mainly for manual entries (negative ids) logged by mistake or duplicated.",
+      inputSchema: z.object({
+        id: z.union([z.string(), z.number()]).describe("Activity id from list_activities."),
+      }),
+      annotations: DESTRUCTIVE,
+    },
+    run(async (args) => deleteActivityTool(args)),
+  );
+
+  server.registerTool(
+    "resync_strava",
+    {
+      title: "Pull new activities from Strava",
+      description:
+        "Fetch activities from Strava now instead of waiting for the webhook or the daily cron. Use it when the athlete says a Strava workout is missing. budget caps how many activities get the full detail and photo fetch per athlete (default 10, max 25); the rest are stored as summaries and detailed on the next run. Returns per-athlete counts and errors.",
+      inputSchema: z.object({
+        athlete: athleteChoice.optional(),
+        since: date("Only activities on or after this day; default 2026-11-02").optional(),
+        budget: z.number().int().min(0).max(25).optional().describe("Detail fetches per athlete, default 10."),
+      }),
+      annotations: { ...WRITE, openWorldHint: true },
+    },
+    run(async (args) => resyncStrava(args)),
   );
 }
