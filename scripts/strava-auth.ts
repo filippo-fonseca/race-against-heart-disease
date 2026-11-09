@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { parseArgs } from "node:util";
 import { parseAthlete, requireEnv } from "./strava-env";
 import { upsertAthleteRow } from "../src/lib/training/db";
-import { authorizeUrl, exchangeCode, STRAVA_SCOPE } from "../src/lib/training/strava";
+import { authorizeUrl, exchangeCode, missingScopes, STRAVA_SCOPES } from "../src/lib/training/strava";
 
 /**
  * One-time Strava authorization for an athlete.
@@ -12,7 +12,10 @@ import { authorizeUrl, exchangeCode, STRAVA_SCOPE } from "../src/lib/training/st
  *   npm run strava:auth -- --athlete filippo
  *
  * Opens the consent page, catches the redirect on localhost:4567, exchanges
- * the code and upserts the athlete row (name, avatar, tokens). The Strava app
+ * the code and upserts the athlete row (name, avatar, tokens). It asks for
+ * activity:read_all and activity:write (the MCP tools create and edit
+ * activities on Strava) and refuses to save unless both were granted, so an
+ * athlete authorized before write access existed re-runs it once. The Strava app
  * must list `localhost` as its Authorization Callback Domain.
  */
 
@@ -47,8 +50,12 @@ const server = createServer(async (req, res) => {
   const scope = url.searchParams.get("scope") ?? "";
   try {
     if (error || !code) throw new Error(`Strava returned ${error ?? "no code"}`);
-    if (!scope.includes(STRAVA_SCOPE)) {
-      throw new Error(`Scope "${scope}" does not include ${STRAVA_SCOPE}; re-run and tick the box.`);
+    const missing = missingScopes(scope);
+    if (missing.length > 0) {
+      throw new Error(
+        `Strava granted "${scope || "nothing"}" but the app needs ${STRAVA_SCOPES.join(" and ")}. ` +
+          `Missing: ${missing.join(", ")}. Re-run and leave every permission box ticked on the consent page.`,
+      );
     }
     const data = await exchangeCode(code);
     if (!data.athlete) throw new Error("Token response had no athlete.");

@@ -195,7 +195,9 @@ export function authorizeUrl(redirectUri: string): string {
     client_id,
     response_type: "code",
     redirect_uri: redirectUri,
-    approval_prompt: "auto",
+    // Always show the consent page so an athlete who granted read-only
+    // access earlier is asked again for activity:write.
+    approval_prompt: "force",
     scope: STRAVA_SCOPE,
   });
   return `${STRAVA_OAUTH}/authorize?${params}`;
