@@ -147,57 +147,7 @@ body {
     linear-gradient(#000, #000) 10px 10px / calc(100% - 20px) calc(100% - 20px) no-repeat;
 }
 
-/* Envelope open/close choreography */
-.envelope {
-  perspective: 1600px;
-}
-
-.flap {
-  transform-origin: top center;
-  transform-style: preserve-3d;
-  transition: transform 900ms var(--ease);
-}
-
-.is-opening .flap {
-  transform: rotateX(-178deg);
-}
-
-.seal {
-  transition:
-    transform 500ms var(--ease),
-    opacity 400ms ease;
-}
-
-.is-opening .seal {
-  transform: translateY(-6px) scale(0.86);
-  opacity: 0;
-}
-
-/* Hidden while sealed so nothing peeks past the flap; revealed as it lifts. */
-.letter-sheet {
-  opacity: 0;
-  transition:
-    transform 900ms var(--ease) 300ms,
-    opacity 200ms ease 250ms;
-}
-
-.is-opening .letter-sheet {
-  opacity: 1;
-  transform: translateY(-46%);
-}
-
-.envelope-body {
-  transition:
-    opacity 500ms ease 700ms,
-    transform 700ms var(--ease) 700ms;
-}
-
-.is-opening .envelope-body {
-  opacity: 0;
-  transform: translateY(24px) scale(0.98);
-}
-
-/* Staggered reveal once the letter is open. Children set --i. */
+/* Staggered reveal on load. Children set --i. */
 @keyframes rise {
   from {
     opacity: 0;
@@ -214,37 +164,42 @@ body {
   animation-delay: calc(var(--i, 0) * 70ms + 60ms);
 }
 
-@keyframes pulse-ring {
-  0% {
-    transform: scale(1);
-    opacity: 0.45;
-  }
+/* The heart in the mark beats constantly: a lub and a softer dub, then rest,
+   with a red glow that swells on each beat. */
+@keyframes heartbeat {
+  0%,
+  45%,
   100% {
-    transform: scale(1.9);
-    opacity: 0;
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(196, 30, 58, 0));
+  }
+  12% {
+    transform: scale(1.16);
+    filter: drop-shadow(0 0 10px rgba(196, 30, 58, 0.55));
+  }
+  22% {
+    transform: scale(1.03);
+    filter: drop-shadow(0 0 4px rgba(196, 30, 58, 0.25));
+  }
+  32% {
+    transform: scale(1.11);
+    filter: drop-shadow(0 0 8px rgba(196, 30, 58, 0.45));
   }
 }
 
-.seal-ring::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 9999px;
-  border: 1.5px solid var(--red);
-  animation: pulse-ring 2.4s ease-out infinite;
+.beat {
+  transform-origin: 50% 55%;
+  animation: heartbeat 1.1s ease-in-out infinite;
+  will-change: transform, filter;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .flap,
-  .seal,
-  .letter-sheet,
-  .envelope-body,
   .pill {
     transition-duration: 1ms !important;
     transition-delay: 0ms !important;
   }
   .rise,
-  .seal-ring::after {
+  .beat {
     animation: none !important;
   }
 }

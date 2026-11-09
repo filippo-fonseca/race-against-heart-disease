@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Mark } from "./marks";
+import { SocialIcon } from "./Socials";
 import { site } from "@/lib/site";
 
 /** "admin" renders the bar with no active tab. */
@@ -16,7 +17,7 @@ export function SiteHeader({ current }: { current: Current }) {
     <header className="sticky top-0 z-50 border-b border-rule bg-desk/85 backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-[1200px] items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2.5" aria-label={site.name}>
-          <Mark className="h-6 w-6 text-red" />
+          <Mark className="beat h-8 w-8 text-red" />
           <span className="hidden font-serif text-[15px] tracking-tight sm:inline">{site.name}</span>
         </Link>
 
@@ -33,6 +34,16 @@ export function SiteHeader({ current }: { current: Current }) {
             <span className="sm:hidden">Training</span>
             <span className="hidden sm:inline">The training</span>
           </Link>
+          <a
+            href={site.repo}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Source code on GitHub"
+            title="Source code on GitHub"
+            className="text-ink-faint transition-colors hover:text-ink"
+          >
+            <SocialIcon kind="github" className="h-5 w-5" />
+          </a>
           <a
             href={site.donateUrl}
             target="_blank"
