@@ -87,18 +87,34 @@ export function normalizePlanInput(input: PlanSessionInput, index: number, opts:
   };
 }
 
-/** Normalise a batch and reject duplicate ids within it. */
+/**
+ * Normalise a batch. Two sessions with the same date, sport, title and
+ * athletes, or the same explicit id, are an error. The same title for
+ * different athletes is fine: the later derived id gets an athlete suffix
+ * so every id in the batch is unique.
+ */
 export function normalizeBatch(inputs: PlanSessionInput[], opts: { forceAthlete?: AthleteSlug } = {}): NormalizedInput[] {
   const out = inputs.map((s, i) => normalizePlanInput(s, i, opts));
-  const seen = new Map<string, number>();
+  const keys = new Map<string, number>();
+  const explicit = new Map<string, number>();
   out.forEach((n, i) => {
-    const prev = seen.get(n.session.id);
-    if (prev !== undefined) {
-      throw new McpToolError(`sessions[${i}] has the same id as sessions[${prev}] (${n.session.id}). Give them different titles or explicit ids.`);
+    const key = upsertKey(n.session);
+    const prevKey = keys.get(key);
+    if (prevKey !== undefined) {
+      throw new McpToolError(`sessions[${i}] is the same session twice: same date, sport, title and athlete as sessions[${prevKey}]. Merge them or change a title.`);
     }
-    seen.set(n.session.id, i);
+    keys.set(key, i);
+    if (!n.explicitId) return;
+    const prev = explicit.get(n.session.id);
+    if (prev !== undefined) throw new McpToolError(`sessions[${i}] has the same id as sessions[${prev}] (${n.session.id}).`);
+    explicit.set(n.session.id, i);
   });
-  return out;
+  const taken = new Set(explicit.keys());
+  return out.map((n) => {
+    if (n.explicitId) return n;
+    const id = uniqueId(n.session.id, taken, n.session.athletes[0]);
+    return id === n.session.id ? n : { ...n, session: { ...n.session, id } };
+  });
 }
 
 /** "both" for shared rows, else the single slug (or a comma list). */
