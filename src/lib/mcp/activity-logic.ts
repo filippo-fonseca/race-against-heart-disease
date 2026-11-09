@@ -1,6 +1,7 @@
 import type { ISODate } from "../training/dates";
 import type { CreateActivityInput, UpdateActivityInput } from "../training/strava";
 import type { Activity, AthleteSlug } from "../training/types";
+import { compactPhoto } from "./photo-edit";
 import { assertDate, isClock, McpToolError, type AthleteChoice } from "./validate";
 
 /**
@@ -253,7 +254,7 @@ export function compactActivity(a: Activity) {
     avg_watts: a.avgWatts,
     effort: a.effort,
     description: a.description,
-    photos: a.photos.map((p) => ({ id: p.id, url: p.url, caption: p.caption })),
+    photos: a.photos.map(compactPhoto),
     strava_url: stravaActivityUrl(a.id),
   };
 }

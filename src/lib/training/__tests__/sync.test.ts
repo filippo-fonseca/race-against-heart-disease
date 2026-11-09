@@ -81,6 +81,13 @@ test("a resync shows Strava's current photos and keeps every uploaded one", asyn
   assert.notEqual(backend.rows.get(ID)!.updated_at, "2026-11-08T13:00:00.000Z");
 });
 
+test("a resync keeps the order and captions set with update_photo", async () => {
+  seedRow([{ ...upload(2), caption: "finish line" }, upload(1)]);
+  backend.strava.set(ID, { detail: stravaDetail(ID, { photos: { count: 1, primary: null } }), photos: [stravaPhoto("strava-a")] });
+  await syncActivity(athlete, ID);
+  assert.deepEqual(storedPhotos().map((p) => [p.id, p.caption]), [["strava-a", null], ["upload-2", "finish line"], ["upload-1", "uploaded 1"]]);
+});
+
 test("an upload that lands between the resync's read and write is not lost", async () => {
   seedRow([upload(1)]);
   backend.strava.set(ID, { detail: stravaDetail(ID, { photos: { count: 1, primary: null } }), photos: [stravaPhoto("strava-a")] });

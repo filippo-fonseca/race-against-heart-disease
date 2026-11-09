@@ -2,7 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { getFundraisingSummary, getOverview } from "./overview";
 import { deleteActivityTool, listActivitiesTool, logActivities, resyncStrava, updateActivityTool } from "./activity-tools";
-import { addPhoto, removePhoto } from "./photo-tools";
+import { addPhoto, removePhoto, updatePhoto } from "./photo-tools";
 import { McpToolError } from "./validate";
 
 /**
@@ -109,7 +109,7 @@ export function registerTools(server: McpServer): void {
     {
       title: "List completed activities",
       description:
-        "What the athletes actually did between from and to (inclusive, at most 200 days), newest first, as mirrored from Strava. Each has id (the Strava activity id), athlete, sport, sport_type, name, date, start_local, moving_time_min, elapsed_time_min, distance_km, elevation_m, avg_hr, max_hr, avg_watts, effort, description, photos (id, url, caption) and strava_url. Use it before logging to avoid duplicates and to find ids for update_activity, delete_activity and add_photo.",
+        "What the athletes actually did between from and to (inclusive, at most 200 days), newest first, as mirrored from Strava. Each has id (the Strava activity id), athlete, sport, sport_type, name, date, start_local, moving_time_min, elapsed_time_min, distance_km, elevation_m, avg_hr, max_hr, avg_watts, effort, description, photos and strava_url. Each photo has id, position, source (strava: synced from the Strava app, read-only here; mcp: added through add_photo, editable), editable, url, caption, width and height. Use it before logging to avoid duplicates and to find ids for update_activity, delete_activity, add_photo, update_photo and remove_photo.",
       inputSchema: z.object({
         from: date("First day"),
         to: date("Last day, inclusive"),
@@ -214,13 +214,14 @@ export function registerTools(server: McpServer): void {
   server.registerTool(
     "add_photo",
     {
-      title: "Attach a photo to an activity",
+      title: "Add a photo to an activity",
       description:
-        "Store a session photo and show it on that activity in the training log. Give the image as image_url (a URL this server can download, such as a Telegram file URL from getFile) or as image_base64 (raw base64 or a data: URL). JPEG, PNG, WebP or HEIC, at most 15 MB; prefer JPEG. Target the activity with activity_id, or with athlete plus date to use that athlete's only activity that day. If the day has several activities the call fails and lists them: ask which one. If it has none, the session is not on Strava yet: create it with log_activities (or resync_strava if it was recorded) and retry with the new id. Photos are stored on this server, not uploaded to Strava (its API cannot accept photos).",
+        "Add a session photo to a Strava activity. It shows on the website next to the activity, together with the photos the athlete added in the Strava app; it does NOT appear inside the Strava app (Strava's API cannot upload photos). Give the image as image_url (a URL this server can download, such as a Telegram file URL from getFile) or as image_base64 (raw base64 or a data: URL). JPEG, PNG, WebP or HEIC, at most 15 MB; prefer JPEG. Target the activity with activity_id (the Strava id from list_activities), or with date (optionally plus sport) to use the only matching activity that day. If zero or several activities match, nothing is stored: the result has attached false, a reason, and the candidates; ask which one (or log/resync the session first) and call again with activity_id.",
       inputSchema: z.object({
         athlete: z.enum(["filippo", "emir"]).describe("Whose activity: filippo or emir."),
-        activity_id: z.union([z.string(), z.number()]).nullish().describe("Activity id from list_activities. Takes priority over date."),
+        activity_id: z.union([z.string(), z.number()]).nullish().describe("Strava activity id from list_activities. Takes priority over date."),
         date: date("Day of the activity, used when activity_id is omitted").nullish(),
+        sport: sport.nullish().describe("With date: only consider activities in this bucket (swim, bike, run, strength)."),
         image_url: z.string().url().max(2048).nullish().describe("Public http(s) URL of the image. Not stored; only the image is."),
         image_base64: z
           .string()
@@ -236,14 +237,34 @@ export function registerTools(server: McpServer): void {
   );
 
   server.registerTool(
+    "update_photo",
+    {
+      title: "Edit, replace or reorder added photos",
+      description:
+        "Change photos added through this server (source mcp, ids starting with upload-; see the photos of an activity in list_activities). Any combination of: caption (null or empty clears it), a new image for photo_id (image_url or image_base64; the photo gets a new id in the same position and the old file is deleted), and order (every added photo id of the activity, in the new order). Strava photos (source strava) are read-only: they always come first in Strava's order, and only the Strava app can change or remove them; the site follows automatically.",
+      inputSchema: z.object({
+        activity_id: z.union([z.string(), z.number()]).describe("Strava activity id from list_activities."),
+        photo_id: z.string().min(1).nullish().describe("The added photo to change; required for caption or a new image."),
+        caption: z.string().max(300).nullish().describe("New caption; null or empty string clears it. Omit to keep it."),
+        image_url: z.string().url().max(2048).nullish().describe("Replacement image URL (see add_photo)."),
+        image_base64: z.string().max(6_000_000).nullish().describe("Replacement image as base64 (see add_photo; under about 3 MB)."),
+        mime_type: z.string().max(40).nullish(),
+        order: z.array(z.string().min(1)).max(50).nullish().describe("Every added photo id of this activity, in the order to show them (after the Strava photos)."),
+      }),
+      annotations: { ...WRITE, idempotentHint: false, openWorldHint: true },
+    },
+    run(async (args) => updatePhoto(args)),
+  );
+
+  server.registerTool(
     "remove_photo",
     {
-      title: "Remove a photo from an activity",
+      title: "Remove an added photo",
       description:
-        "Remove one photo from an activity (photo ids come from list_activities). Photos uploaded here are also deleted from storage. A Strava photo comes back on the next detail sync unless it is removed on Strava too. Confirm with the user first.",
+        "Remove one photo that was added through this server (source mcp) from an activity and delete its file. Strava photos (source strava) are read-only and are refused: the athlete removes those in the Strava app and the site follows. Confirm with the user first.",
       inputSchema: z.object({
-        activity_id: z.union([z.string(), z.number()]).describe("Activity id from list_activities."),
-        photo_id: z.string().min(1).describe("Photo id from that activity's photos list."),
+        activity_id: z.union([z.string(), z.number()]).describe("Strava activity id from list_activities."),
+        photo_id: z.string().min(1).describe("Photo id (upload-...) from that activity's photos list."),
       }),
       annotations: DESTRUCTIVE,
     },

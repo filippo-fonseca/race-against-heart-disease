@@ -4,6 +4,7 @@ import { keepUploadedPhotos } from "../../training/photos";
 import type { Activity } from "../../training/types";
 import { bucketOf, buildStravaCreate, buildStravaUpdate, compactActivity, createSequentially, sportTotals, type PlannedCreate } from "../activity-logic";
 import { checkMcpAuth, extractBearer } from "../auth";
+import { applyPhotoEdit, compactPhoto, pickPhotoTarget, withoutPhoto } from "../photo-edit";
 import { checkImageUrl, decodeBase64Image, imageDimensions, pathFromPublicUrl, sniffImageType, validateImage } from "../photo-logic";
 import { isRealDate, localStart, McpToolError, trainingWindow, validateRange } from "../validate";
 
@@ -287,11 +288,81 @@ test("checkImageUrl allows public http(s) and blocks local or private hosts", ()
 });
 
 test("pathFromPublicUrl and keepUploadedPhotos", () => {
-  assert.equal(pathFromPublicUrl("https://x.supabase.co/storage/v1/object/public/training-photos/filippo/-1/upload-a.jpg"), "filippo/-1/upload-a.jpg");
+  assert.equal(pathFromPublicUrl("https://x.supabase.co/storage/v1/object/public/training-photos/filippo/16800000001/upload-a.jpg"), "filippo/16800000001/upload-a.jpg");
   assert.equal(pathFromPublicUrl("https://dgalywyr863hv.cloudfront.net/pictures/1.jpg"), null);
   const strava = { id: "s1", url: "https://cdn/1.jpg", width: null, height: null, caption: null };
   const upload = { id: "upload-1", url: "https://x/1.jpg", width: 10, height: 10, caption: null };
   assert.deepEqual(keepUploadedPhotos([strava], [strava, upload]), [strava, upload]);
   assert.deepEqual(keepUploadedPhotos([strava], [{ ...strava, id: "old-strava" }]), [strava]);
   assert.deepEqual(keepUploadedPhotos([], null), []);
+});
+
+/* ------------------------------------------------------------------ */
+/* Photos: lookup and editing                                           */
+/* ------------------------------------------------------------------ */
+
+const day = (id: string, date: string, sport: string) => ({ id, date, sport });
+
+test("pickPhotoTarget attaches to a single match and hands back zero or several", () => {
+  const acts = [day("1", "2026-11-08", "run"), day("2", "2026-11-09", "bike"), day("3", "2026-11-09", "strength"), day("4", "2026-11-09", "other")];
+  assert.deepEqual(pickPhotoTarget(acts, { date: "2026-11-08" }, bucketOf), { kind: "one", activity: acts[0] });
+  assert.deepEqual(pickPhotoTarget(acts, { date: "2026-11-07" }, bucketOf), { kind: "none" });
+  const many = pickPhotoTarget(acts, { date: "2026-11-09" }, bucketOf);
+  assert.equal(many.kind, "many");
+  assert.deepEqual(many.kind === "many" && many.candidates.map((a) => a.id), ["2", "3", "4"]);
+  // A sport narrows it: bike is unique that day; strength covers "other" too, so it is still ambiguous.
+  assert.deepEqual(pickPhotoTarget(acts, { date: "2026-11-09", sport: "bike" }, bucketOf), { kind: "one", activity: acts[1] });
+  const lifts = pickPhotoTarget(acts, { date: "2026-11-09", sport: "strength" }, bucketOf);
+  assert.deepEqual(lifts.kind === "many" && lifts.candidates.map((a) => a.id), ["3", "4"]);
+  assert.deepEqual(pickPhotoTarget(acts, { date: "2026-11-09", sport: "swim" }, bucketOf), { kind: "none" });
+});
+
+const sPhoto = (id: string) => ({ id, url: `https://cdn.cloudfront.net/${id}.jpg`, width: 1200, height: 900, caption: null });
+const uPhoto = (n: number, caption: string | null = null) => ({ id: `upload-${n}`, url: `https://x.supabase.co/storage/v1/object/public/training-photos/filippo/1/upload-${n}.jpg`, width: 800, height: 600, caption });
+
+test("compactPhoto labels Strava photos read-only and added photos editable", () => {
+  assert.deepEqual(compactPhoto(sPhoto("s1"), 0), { id: "s1", position: 1, source: "strava", editable: false, url: "https://cdn.cloudfront.net/s1.jpg", caption: null, width: 1200, height: 900 });
+  assert.equal(compactPhoto(uPhoto(1), 2).source, "mcp");
+  assert.equal(compactPhoto(uPhoto(1), 2).editable, true);
+  assert.equal(compactPhoto(uPhoto(1), 2).position, 3);
+});
+
+test("applyPhotoEdit changes captions and replaces images in place, never Strava photos", () => {
+  const photos = [sPhoto("s1"), uPhoto(1, "old"), uPhoto(2)];
+  assert.deepEqual(applyPhotoEdit(photos, { photo_id: "upload-1", caption: "  Mile 6 " })[1], { ...uPhoto(1), caption: "Mile 6" });
+  assert.equal(applyPhotoEdit(photos, { photo_id: "upload-1", caption: null })[1].caption, null);
+  assert.equal(applyPhotoEdit(photos, { photo_id: "upload-1", caption: "" })[1].caption, null);
+
+  const replacement = { ...uPhoto(9), width: 4000, height: 3000 };
+  const replaced = applyPhotoEdit(photos, { photo_id: "upload-1", replacement });
+  assert.deepEqual(replaced.map((p) => p.id), ["s1", "upload-9", "upload-2"]);
+  assert.equal(replaced[1].caption, "old", "a replaced image keeps its caption");
+  assert.equal(applyPhotoEdit(photos, { photo_id: "upload-1", replacement, caption: "new" })[1].caption, "new");
+
+  assert.throws(() => applyPhotoEdit(photos, { photo_id: "s1", caption: "x" }), /comes from Strava and is read-only/);
+  assert.throws(() => applyPhotoEdit(photos, { photo_id: "upload-7", caption: "x" }), /no photo upload-7/);
+  assert.throws(() => applyPhotoEdit(photos, { caption: "x" }), /photo_id is required/);
+  assert.throws(() => applyPhotoEdit(photos, {}), /Nothing to update/);
+  assert.throws(() => applyPhotoEdit(photos, { photo_id: "upload-1", caption: "x".repeat(301) }), /longer than 300/);
+});
+
+test("applyPhotoEdit reorders the added photos and keeps Strava photos first", () => {
+  const photos = [sPhoto("s1"), uPhoto(1), sPhoto("s2"), uPhoto(2), uPhoto(3)];
+  assert.deepEqual(applyPhotoEdit(photos, { order: ["upload-3", "upload-1", "upload-2"] }).map((p) => p.id), ["s1", "s2", "upload-3", "upload-1", "upload-2"]);
+  // Reorder and caption together; the caption follows the photo.
+  const both = applyPhotoEdit(photos, { order: ["upload-2", "upload-3", "upload-1"], photo_id: "upload-1", caption: "last" });
+  assert.deepEqual(both.map((p) => [p.id, p.caption]).slice(2), [["upload-2", null], ["upload-3", null], ["upload-1", "last"]]);
+  assert.throws(() => applyPhotoEdit(photos, { order: ["upload-1", "upload-2"] }), /missing: upload-3/);
+  assert.throws(() => applyPhotoEdit(photos, { order: ["upload-1", "upload-1", "upload-2"] }), /more than once/);
+  assert.throws(() => applyPhotoEdit(photos, { order: ["s1", "upload-1", "upload-2", "upload-3"] }), /read-only/);
+  assert.throws(() => applyPhotoEdit(photos, { order: ["upload-1", "upload-2", "upload-x"] }), /not a photo added/);
+});
+
+test("withoutPhoto removes an added photo and refuses Strava photos", () => {
+  const photos = [sPhoto("s1"), uPhoto(1), uPhoto(2)];
+  const { photos: rest, removed } = withoutPhoto(photos, "upload-1");
+  assert.deepEqual(rest.map((p) => p.id), ["s1", "upload-2"]);
+  assert.equal(removed.id, "upload-1");
+  assert.throws(() => withoutPhoto(photos, "s1"), /read-only/);
+  assert.throws(() => withoutPhoto(photos, "upload-5"), /no photo upload-5/);
 });
