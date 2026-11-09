@@ -4,7 +4,7 @@ import { deriveId } from "../../admin/plan-import";
 import { weekOf } from "../../training/plan";
 import { keepUploadedPhotos } from "../../training/photos";
 import type { Activity, PlanSession } from "../../training/types";
-import { activityPatch, buildManualActivity, compactActivity, isManualId, manualActivityId, sourceOf } from "../activity-logic";
+import { buildStravaCreate, buildStravaUpdate, compactActivity, createSequentially, type PlannedCreate } from "../activity-logic";
 import { checkMcpAuth, extractBearer } from "../auth";
 import { checkImageUrl, decodeBase64Image, imageDimensions, pathFromPublicUrl, sniffImageType, validateImage } from "../photo-logic";
 import { deletePlanScope, normalizeBatch, normalizePlanInput, planUpsertDiff, replaceRangeDiff, uniqueId, type PlanSessionInput } from "../plan-logic";
@@ -229,58 +229,120 @@ test("deletePlanScope deletes for both, and for one athlete narrows shared rows 
 });
 
 /* ------------------------------------------------------------------ */
-/* Manual activities                                                    */
+/* Activities: payloads for Strava                                      */
 /* ------------------------------------------------------------------ */
 
-test("manualActivityId is a negative safe integer that cannot meet a Strava id", () => {
-  const now = Date.UTC(2026, 10, 9, 12);
-  const id = manualActivityId(now, 0.4567);
-  assert.equal(id, -(now * 1000 + 456));
-  assert.ok(Number.isSafeInteger(id));
-  assert.ok(id < 0);
-  assert.equal(manualActivityId(now, 0.99999), -(now * 1000 + 999));
-  assert.notEqual(manualActivityId(now, 0.1), manualActivityId(now, 0.2));
-  assert.ok(Number.isSafeInteger(manualActivityId(Date.UTC(2200, 0, 1), 0.999)));
-  assert.equal(isManualId(id), true);
-  assert.equal(isManualId("16812345678"), false);
-  assert.equal(sourceOf(String(id)), "manual");
-});
-
-test("buildManualActivity requires a duration, refuses future dates and keeps unknowns empty", () => {
-  const opts = { id: -1, athlete: "filippo" as const, today: "2026-11-09", index: 0 };
-  const a = buildManualActivity({ athlete: "filippo", sport: "strength", date: "2026-11-09", moving_time_min: 45 }, opts);
-  assert.equal(a.name, "Strength");
-  assert.equal(a.stravaSportType, "WeightTraining");
-  assert.equal(a.movingTimeSec, 2700);
-  assert.equal(a.elapsedTimeSec, 2700);
-  assert.equal(a.startLocal, "2026-11-09T12:00:00-05:00");
-  assert.equal(a.avgHr, null);
-  assert.equal(a.distanceM, 0);
-  const swim = buildManualActivity({ athlete: "filippo", sport: "swim", date: "2026-11-08", start_time: "06:15", moving_time_min: 40, distance_km: 1.8 }, opts);
-  assert.equal(swim.distanceM, 1800);
-  assert.equal(swim.date, "2026-11-08");
-  assert.throws(() => buildManualActivity({ athlete: "filippo", sport: "run", date: "2026-11-10", moving_time_min: 30 }, opts), /future/);
-  assert.throws(() => buildManualActivity({ athlete: "filippo", sport: "run", date: "2026-11-09" }, opts), /moving_time_min is required/);
-});
-
-test("activityPatch maps fields to columns and keeps the clock when only the date moves", () => {
-  const current: Activity = {
-    ...buildManualActivity({ athlete: "emir", sport: "run", date: "2026-11-08", start_time: "07:30", moving_time_min: 30 }, { id: -5, athlete: "emir", today: "2026-11-09", index: 0 }),
-    // As read back from Postgres: the same instant in UTC.
-    startLocal: "2026-11-08T12:30:00+00:00",
-  };
-  const patch = activityPatch(current, { date: "2026-11-07", distance_km: 6.2, sport: "bike", description: null }, "2026-11-09");
-  assert.deepEqual(patch, {
-    description: null,
-    sport: "bike",
-    strava_sport_type: "Ride",
-    date: "2026-11-07",
-    start_local: "2026-11-07T07:30:00-05:00",
-    distance_m: 6200,
+test("buildStravaCreate maps a session to Strava's create fields with sane defaults", () => {
+  const opts = { today: "2026-11-09", index: 0 };
+  assert.deepEqual(buildStravaCreate({ athlete: "filippo", sport: "strength", date: "2026-11-09", duration_min: 45 }, opts), {
+    name: "Strength",
+    sport_type: "WeightTraining",
+    start_date_local: "2026-11-09T12:00:00",
+    elapsed_time: 2700,
   });
-  assert.throws(() => activityPatch(current, {}, "2026-11-09"), /nothing to update/);
-  assert.throws(() => activityPatch(current, { date: "2026-12-01" }, "2026-11-09"), /future/);
-  assert.equal(compactActivity(current).source, "manual");
+  const swim = buildStravaCreate(
+    { athlete: "emir", sport: "swim", date: "2026-11-08", start_time: "06:15", duration_min: 40.5, distance_km: 1.8, name: " Masters ", description: " 10 x 100 ", trainer: false },
+    opts,
+  );
+  assert.deepEqual(swim, {
+    name: "Masters",
+    sport_type: "Swim",
+    start_date_local: "2026-11-08T06:15:00",
+    elapsed_time: 2430,
+    description: "10 x 100",
+    distance: 1800,
+    trainer: false,
+  });
+  assert.equal(buildStravaCreate({ athlete: "filippo", sport: "bike", sport_type: "VirtualRide", date: "2026-11-09", duration_min: 60 }, opts).sport_type, "VirtualRide");
+});
+
+test("buildStravaCreate refuses future dates, missing durations and bad sport types", () => {
+  const opts = { today: "2026-11-09", index: 2 };
+  assert.throws(() => buildStravaCreate({ athlete: "filippo", sport: "run", date: "2026-11-10", duration_min: 30 }, opts), /activities\[2\]\.date .*future/);
+  assert.throws(() => buildStravaCreate({ athlete: "filippo", sport: "run", date: "2026-11-09" } as never, opts), /duration_min is required/);
+  assert.throws(() => buildStravaCreate({ athlete: "filippo", sport: "run", date: "2026-11-09", duration_min: 0 }, opts), /duration_min is required/);
+  assert.throws(() => buildStravaCreate({ athlete: "filippo", sport: "run", date: "2026-11-09", duration_min: 30, sport_type: "trail run" }, opts), /not a Strava sport type/);
+  assert.throws(() => buildStravaCreate({ athlete: "filippo", sport: "run", date: "2026-11-09", duration_min: 30, start_time: "7:00" }, opts), /HH:MM/);
+});
+
+test("buildStravaUpdate sends only Strava-updatable fields and skips no-op sport changes", () => {
+  const ride = { sport: "bike" as const, stravaSportType: "VirtualRide" };
+  assert.deepEqual(buildStravaUpdate(ride, { name: " Zwift ", description: null, trainer: true }), { name: "Zwift", description: "", trainer: true });
+  // Same sport keeps the more specific sport type.
+  assert.throws(() => buildStravaUpdate(ride, { sport: "bike" }), /nothing to update/);
+  assert.deepEqual(buildStravaUpdate(ride, { sport: "run" }), { sport_type: "Run" });
+  assert.deepEqual(buildStravaUpdate(ride, { sport: "run", sport_type: "TrailRun" }), { sport_type: "TrailRun" });
+  assert.throws(() => buildStravaUpdate(ride, { sport_type: "VirtualRide" }), /nothing to update/);
+  assert.deepEqual(buildStravaUpdate(ride, { commute: false, hide_from_home: true }), { commute: false, hide_from_home: true });
+  assert.throws(() => buildStravaUpdate(ride, {}), /nothing to update/);
+  assert.throws(() => buildStravaUpdate(ride, { name: "  " }), /cannot be empty/);
+  // Fields Strava cannot update are not part of the contract at all.
+  assert.throws(() => buildStravaUpdate(ride, { distance_km: 5 } as never), /nothing to update/);
+});
+
+const plannedCreate = (index: number): PlannedCreate => ({
+  index,
+  athlete: "filippo",
+  payload: { name: `S${index}`, sport_type: "Run", start_date_local: "2026-11-08T12:00:00", elapsed_time: 600 },
+});
+
+test("createSequentially creates in order and finishes when nothing goes wrong", async () => {
+  const seen: number[] = [];
+  const res = await createSequentially([plannedCreate(0), plannedCreate(1)], { nearLimit: () => false, create: async (p) => (seen.push(p.index), p.index * 10) });
+  assert.deepEqual(seen, [0, 1]);
+  assert.deepEqual(res, { done: [0, 10], remaining: [], stopped: null });
+});
+
+test("createSequentially stops before the rate limit and on the first failure", async () => {
+  let calls = 0;
+  const limited = await createSequentially([plannedCreate(0), plannedCreate(1), plannedCreate(2)], {
+    nearLimit: () => calls >= 1,
+    create: async () => ++calls,
+  });
+  assert.deepEqual(limited.done, [1]);
+  assert.deepEqual(limited.remaining.map((p) => p.index), [1, 2]);
+  assert.equal(limited.stopped?.reason, "rate_limit");
+
+  const failed = await createSequentially([plannedCreate(0), plannedCreate(1), plannedCreate(2)], {
+    nearLimit: () => false,
+    create: async (p) => {
+      if (p.index === 1) throw new Error("Strava refused the write");
+      return p.index;
+    },
+  });
+  assert.deepEqual(failed.done, [0]);
+  assert.deepEqual(failed.remaining.map((p) => p.index), [1, 2]);
+  assert.equal(failed.stopped?.reason, "error");
+  assert.equal(failed.stopped?.item?.index, 1);
+  assert.match(failed.stopped?.message ?? "", /refused/);
+});
+
+test("compactActivity links to Strava and carries no manual source", () => {
+  const a: Activity = {
+    id: "16812345678",
+    athlete: "emir",
+    sport: "run",
+    stravaSportType: "Run",
+    name: "Easy",
+    description: null,
+    startLocal: "2026-11-08T07:30:00-05:00",
+    date: "2026-11-08",
+    movingTimeSec: 1800,
+    elapsedTimeSec: 1860,
+    distanceM: 6234,
+    elevationGainM: 12.4,
+    avgHr: 140,
+    maxHr: null,
+    avgWatts: null,
+    effort: null,
+    photos: [],
+    detailed: true,
+  };
+  const c = compactActivity(a);
+  assert.equal(c.strava_url, "https://www.strava.com/activities/16812345678");
+  assert.equal(c.moving_time_min, 30);
+  assert.equal(c.distance_km, 6.23);
+  assert.equal("source" in c, false);
 });
 
 /* ------------------------------------------------------------------ */
