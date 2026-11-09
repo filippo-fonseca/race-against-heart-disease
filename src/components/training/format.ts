@@ -101,19 +101,3 @@ export function fmtSportTotal(sport: SportBucket, t: { timeSec: number; distance
   if (sport === "swim" || sport === "run") return `${fmtKm(t.distanceM, sport)} km`;
   return fmtHM(t.timeSec);
 }
-
-/** Past-tense verb for the auto note. */
-export const sportVerb: Record<Sport, string> = {
-  swim: "Swam",
-  bike: "Rode",
-  run: "Ran",
-  strength: "Lifted",
-  other: "Moved",
-};
-
-/** The three race legs in metres, for cumulative "times the race distance". */
-export const raceLegM: Partial<Record<Sport, number>> = {
-  swim: 1_900,
-  bike: 90_000,
-  run: 21_100,
-};

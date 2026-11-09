@@ -72,6 +72,7 @@ export function ChartRail({
             today={cal.today}
             totalWeeks={cal.totalWeeks}
             daysBetween={cal.daysBetween}
+            addDays={cal.addDays}
           />
         </div>
         <div className={chart}>

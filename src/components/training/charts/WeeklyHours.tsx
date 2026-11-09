@@ -1,4 +1,5 @@
-import { ChartFrame, Legend, chartSports, sportFill } from "./frame";
+import { ChartFrame, chartSports, sportFill } from "./frame";
+import { SportPill } from "../SportPill";
 import { fmtHours } from "../format";
 import type { WeekSlot } from "../model";
 
@@ -78,14 +79,13 @@ export function WeeklyHours({ slots, currentWeek }: { slots: WeekSlot[]; current
         })}
         <line x1={plot.x0} x2={plot.x1} y1={plot.y1} y2={plot.y1} stroke="var(--ink)" strokeWidth={1} shapeRendering="crispEdges" />
       </svg>
-      <Legend
-        items={[
-          { sport: "swim", text: "Swim" },
-          { sport: "bike", text: "Bike" },
-          { sport: "run", text: "Run" },
-          { sport: "strength", text: "Lift" },
-        ]}
-      />
+      <ul className="mt-3 flex flex-wrap gap-1.5">
+        {chartSports.map((s) => (
+          <li key={s}>
+            <SportPill sport={s} />
+          </li>
+        ))}
+      </ul>
     </ChartFrame>
   );
 }

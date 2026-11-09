@@ -47,21 +47,3 @@ export function ChartFrame({
     </figure>
   );
 }
-
-/** Tiny legend row, mono labels with a square swatch each. */
-export function Legend({ items }: { items: { sport: Sport; text: string }[] }) {
-  return (
-    <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-      {items.map((it) => (
-        <li key={it.sport} className="label flex items-center gap-1.5 !tracking-[0.06em]">
-          <span
-            className="inline-block h-[7px] w-[7px]"
-            style={{ background: sportFill[it.sport] }}
-            aria-hidden="true"
-          />
-          {it.text}
-        </li>
-      ))}
-    </ul>
-  );
-}
