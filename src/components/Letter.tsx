@@ -2,8 +2,10 @@ import type { CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { site, stats } from "@/lib/site";
+import { AboutModal } from "./AboutModal";
 import { CampaignHero } from "./FundraisingMeter";
 import { Mark } from "./marks";
+import { Postcards } from "./Postcards";
 import { SocialIcon, SocialRow, liveSocials } from "./Socials";
 import { StravaEmbed } from "./StravaEmbed";
 
@@ -20,8 +22,18 @@ export function Letter() {
       <header className="rise flex flex-col items-center gap-2 text-center" style={step(0)}>
         <Mark className="beat h-12 w-12 text-red sm:h-14 sm:w-14" />
         <div className="font-serif text-[1.25rem] leading-none tracking-tight sm:text-[1.4rem]">{site.name}</div>
-        <div className="label">
-          {site.race.name} · {site.race.city}, {site.race.stateAbbr} · {site.race.dateLabel}
+        <div className="mt-1.5 flex flex-col items-center gap-2">
+          <Image
+            src="/ironman-logo.png"
+            alt="IRONMAN"
+            width={960}
+            height={238}
+            className="h-8 w-auto sm:h-10"
+            priority
+          />
+          <div className="label">
+            {site.race.name.replace(/^IRONMAN\s*/i, "")} · {site.race.city}, {site.race.stateAbbr} · {site.race.dateLabel}
+          </div>
         </div>
       </header>
 
@@ -52,8 +64,11 @@ export function Letter() {
           priority
         />
         <div className="leading-tight">
-          <div className="font-serif text-[1.1rem] text-ink">
-            {site.author.name}, Age {site.author.age}
+          <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 sm:justify-start">
+            <span className="font-serif text-[1.15rem] font-bold text-ink">
+              {site.author.name}, Age {site.author.age}
+            </span>
+            <AboutModal />
           </div>
           <div className="mt-1 max-w-[34ch] font-serif text-[1rem] italic text-ink-soft sm:max-w-none">
             <span className="mr-1.5 not-italic" aria-hidden="true">🫀</span>
@@ -62,17 +77,6 @@ export function Letter() {
         </div>
       </div>
       <SocialRow className="rise mt-2.5" size="sm" />
-      <details className="rise group mx-auto mt-2 max-w-[560px] text-center">
-        <summary className="label inline-flex cursor-pointer list-none items-center gap-1.5 hover:text-red [&::-webkit-details-marker]:hidden">
-          About me
-          <span className="transition-transform group-open:rotate-180" aria-hidden="true">▾</span>
-        </summary>
-        <div className="mt-3 space-y-3 rounded-xl bg-desk px-5 py-4 text-left font-serif text-[1.05rem] leading-relaxed text-ink-soft">
-          {site.author.about.map((p) => (
-            <p key={p.slice(0, 24)}>{p}</p>
-          ))}
-        </div>
-      </details>
 
       {/* the ask, first */}
       <CampaignHero className="rise mt-6" />
@@ -191,6 +195,9 @@ export function Letter() {
         </div>
 
       </div>
+
+      {/* who is writing: the about text beside photo postcards */}
+      <Postcards className="rise mt-20" />
 
       {/* the figures behind the argument */}
       <section className="rise mt-20" style={step(10)} aria-label="Campaign figures">

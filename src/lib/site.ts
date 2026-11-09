@@ -21,9 +21,12 @@ export const site = {
      * The longer "About me" under the byline, one string per paragraph.
      * Draft: rewrite freely, it is yours to ramble in.
      */
+    /** Shown in the About me modal and beside the postcard gallery. */
     about: [
-      "Endurance runner turned triathlete. I came up through distance running (most recently a 1:23 half marathon) and this season I am adding the swim and the bike for my first 70.3.",
-      "Day to day I study Mechanical Engineering and EECS at Yale and do research on cardiovascular devices and biomechanics, which is a big part of why this cause is personal: I spend my days on what happens when hearts fail, and I would rather more of them never get there.",
+      "In my day-to-day, I'm a student at Yale University, where I major in ABET Mechanical Engineering and EECS. My main research and engineering interests lie in surgical robotics, cardiovascular devices, and biomechanics. I'm building physically intelligent systems beyond wearables: deep cardiac tech and internal medicine toolkits that understand, predict, and adapt, treating structure and geometry as first-class objects, not noise to average away. This past summer, I interned at Massachusetts General Hospital in Boston, and I have done research at MIT and in several Yale labs. I also run the Yale Robotics Group, where we are building a Mars Rover capable of detecting life on Mars.",
+      "The greatest limitation of modern healthcare is not treatment, it's timing. Medicine has extended human lifespan; yet biomedical systems remain reactive: we wait for symptoms and intervene after disease has already begun. Hence why I'm doing this IRONMAN for heart disease prevention! If we could incentivize kids and teenagers to build lifelong habits of training their bodies and moving how our bodies were meant to... so much unnecessary suffering could be prevented (for loved ones, the patients, and the entire healthcare system).",
+      "In my spare time, by far my greatest passion is endurance sport! I love the way it can bring people together and push you to explore not only the outdoors, but the limits of the human condition (both mental and physical!). I'm mainly a runner, which is my starting point for wanting to do a triathlon at least once in my life. My half marathon PR is 1h 23min, so while I believe I'm a very strong runner, at the time of writing I'm (at best) an average biker and a terrible swimmer. I will work my hardest on my weak areas to make sure we bring heart disease prevention the awareness it deserves!",
+      "I'm so incredibly grateful to get to do this, and so incredibly humbled every time I go out on the bike, on a running trail, and (especially) in the pool by how the human body can learn to adapt to so much physical and mental stress, to the point where it's fun! Here's to doing hard things and having fun :)",
     ],
     /**
      * Strava widget (strava.com/athletes/<id>, Share your activities). Both
