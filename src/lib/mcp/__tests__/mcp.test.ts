@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { keepUploadedPhotos } from "../../training/photos";
 import type { Activity } from "../../training/types";
 import { bucketOf, buildStravaCreate, buildStravaUpdate, compactActivity, createSequentially, sportTotals, type PlannedCreate } from "../activity-logic";
-import { checkMcpAuth, extractBearer } from "../auth";
+import { checkMcpAuth, extractBearer, requestCredential } from "../auth";
 import { applyPhotoEdit, compactPhoto, pickPhotoTarget, withoutPhoto } from "../photo-edit";
 import { checkImageUrl, decodeBase64Image, imageDimensions, pathFromPublicUrl, sniffImageType, validateImage } from "../photo-logic";
 import { isRealDate, localStart, McpToolError, trainingWindow, validateRange } from "../validate";
@@ -19,6 +19,17 @@ test("extractBearer accepts Bearer (any case) and a bare token", () => {
   assert.equal(extractBearer(""), null);
   assert.equal(extractBearer(null), null);
   assert.equal(extractBearer("Bearer "), "Bearer");
+});
+
+test("requestCredential prefers the header and falls back to a key query parameter", () => {
+  const base = "https://example.test/api/mcp";
+  assert.equal(requestCredential("Bearer from-header", `${base}?key=from-url`), "from-header");
+  assert.equal(requestCredential(null, `${base}?key=from-url`), "from-url");
+  assert.equal(requestCredential("", `${base}?key=%20spaced%20`), "spaced");
+  assert.equal(requestCredential(null, `${base}?key=`), null);
+  assert.equal(requestCredential(null, base), null);
+  assert.deepEqual(checkMcpAuth(requestCredential(null, `${base}?key=test-token`), "test-token"), { ok: true });
+  assert.equal(checkMcpAuth(requestCredential(null, `${base}?key=nope`), "test-token").ok, false);
 });
 
 test("checkMcpAuth is closed without MCP_TOKEN and constant-time checks the token", () => {
