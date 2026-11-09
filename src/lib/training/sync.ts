@@ -33,23 +33,94 @@ export interface SyncStats {
   errors: string[];
 }
 
+/** How often a read-merge-write is retried when another writer got there first. */
+const WRITE_ATTEMPTS = 5;
+
+interface PhotoState {
+  photos: ActivityPhoto[] | null;
+  updated_at: string;
+}
+
+async function readPhotoState(id: number): Promise<PhotoState | null> {
+  const { data, error } = await db()
+    .from("activities")
+    .select("photos, updated_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as PhotoState | null) ?? null;
+}
+
+/**
+ * A write stamp strictly later than `prior`, so every write changes
+ * `updated_at` and a writer holding the old stamp always notices.
+ */
+export function nextStamp(prior: string | null | undefined, now = Date.now()): string {
+  const before = prior ? Date.parse(prior) : NaN;
+  return new Date(Number.isFinite(before) ? Math.max(now, before + 1) : now).toISOString();
+}
+
 /**
  * Insert or replace one activity. Photos uploaded through the MCP server are
  * carried over from the stored row, so a Strava resync (which rebuilds the
  * photo list from Strava) does not drop them.
+ *
+ * The row is written with optimistic concurrency on `updated_at`: if
+ * anything (typically `add_photo` racing the webhook right after
+ * `log_activities`) changed the row between the read and the write, the
+ * write matches nothing and the merge is redone on the fresh row.
  */
 export async function upsertActivity(activity: Activity, raw: unknown = null): Promise<void> {
-  const { data: prior, error: readError } = await db()
-    .from("activities")
-    .select("photos")
-    .eq("id", Number(activity.id))
-    .maybeSingle();
-  if (readError) throw readError;
-  const photos = keepUploadedPhotos(activity.photos, (prior as { photos: ActivityPhoto[] | null } | null)?.photos);
-  const { error } = await db()
-    .from("activities")
-    .upsert(toActivityRow({ ...activity, photos }, raw), { onConflict: "id" });
-  if (error) throw error;
+  const id = Number(activity.id);
+  for (let attempt = 1; ; attempt++) {
+    const prior = await readPhotoState(id);
+    const photos = keepUploadedPhotos(activity.photos, prior?.photos);
+    const row = { ...toActivityRow({ ...activity, photos }, raw), updated_at: nextStamp(prior?.updated_at) };
+    if (!prior) {
+      const { error } = await db().from("activities").insert(row);
+      if (!error) return;
+      // 23505: the row was created concurrently; merge into it instead.
+      if (error.code !== "23505" || attempt >= WRITE_ATTEMPTS) throw error;
+      continue;
+    }
+    const { data, error } = await db()
+      .from("activities")
+      .update(row)
+      .eq("id", id)
+      .eq("updated_at", prior.updated_at)
+      .select("id");
+    if (error) throw error;
+    if (Array.isArray(data) && data.length > 0) return;
+    if (attempt >= WRITE_ATTEMPTS) throw new Error(`Activity ${id} kept changing during the write; try again.`);
+  }
+}
+
+/**
+ * Read-modify-write of one activity's photo list (used by the MCP photo
+ * tools), with the same optimistic concurrency as `upsertActivity`, so an
+ * upload and a Strava resync landing together cannot erase each other.
+ * `change` gets the current list and returns the new one. Returns null when
+ * the activity does not exist.
+ */
+export async function updateActivityPhotos(
+  id: number | string,
+  change: (photos: ActivityPhoto[]) => ActivityPhoto[],
+): Promise<ActivityPhoto[] | null> {
+  const key = Number(id);
+  for (let attempt = 1; ; attempt++) {
+    const prior = await readPhotoState(key);
+    if (!prior) return null;
+    const photos = change(Array.isArray(prior.photos) ? prior.photos : []);
+    const { data, error } = await db()
+      .from("activities")
+      .update({ photos, updated_at: nextStamp(prior.updated_at) })
+      .eq("id", key)
+      .eq("updated_at", prior.updated_at)
+      .select("id");
+    if (error) throw error;
+    if (Array.isArray(data) && data.length > 0) return photos;
+    if (attempt >= WRITE_ATTEMPTS) throw new Error(`Activity ${key} kept changing while saving photos; try again.`);
+  }
 }
 
 export async function deleteActivity(id: number | string): Promise<void> {
