@@ -4,8 +4,9 @@
   --paper: #ffffff;
   --desk: #fafafa;
   --ink: #141414;
-  --ink-soft: #6e6e6e;
-  --ink-faint: #a3a3a3;
+  /* Secondary text: 8.6:1 on white. Faint (inactive nav, hints): 4.7:1, still AA. */
+  --ink-soft: #4a4a4a;
+  --ink-faint: #737373;
   --rule: rgba(20, 20, 20, 0.08);
   --red: #d8121f;
   --red-deep: #a40d18;
@@ -54,7 +55,7 @@ body {
 /* Eyebrow labels: typewriter, small, tracked. */
 .label {
   font-family: var(--font-courier), "Courier New", monospace;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -164,32 +165,37 @@ body {
   animation-delay: calc(var(--i, 0) * 70ms + 60ms);
 }
 
-/* The heart in the mark beats constantly: a lub and a softer dub, then rest,
-   with a red glow that swells on each beat. */
+/* The heart in the mark beats at an athlete's resting 40 bpm: a gentle lub and a
+   softer dub, then a long rest, with a faint glow that swells and fades.
+   Each step eases in and out so the motion never snaps. */
 @keyframes heartbeat {
   0%,
-  45%,
+  42%,
   100% {
     transform: scale(1);
     filter: drop-shadow(0 0 0 rgba(196, 30, 58, 0));
+    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
   }
-  12% {
-    transform: scale(1.16);
-    filter: drop-shadow(0 0 10px rgba(196, 30, 58, 0.55));
+  11% {
+    transform: scale(1.06);
+    filter: drop-shadow(0 0 5px rgba(196, 30, 58, 0.28));
+    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
   }
-  22% {
-    transform: scale(1.03);
-    filter: drop-shadow(0 0 4px rgba(196, 30, 58, 0.25));
+  19% {
+    transform: scale(1.015);
+    filter: drop-shadow(0 0 2px rgba(196, 30, 58, 0.12));
+    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
   }
-  32% {
-    transform: scale(1.11);
-    filter: drop-shadow(0 0 8px rgba(196, 30, 58, 0.45));
+  27% {
+    transform: scale(1.04);
+    filter: drop-shadow(0 0 4px rgba(196, 30, 58, 0.2));
+    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
   }
 }
 
 .beat {
   transform-origin: 50% 55%;
-  animation: heartbeat 1.1s ease-in-out infinite;
+  animation: heartbeat 1.5s linear infinite;
   will-change: transform, filter;
 }
 
@@ -201,5 +207,39 @@ body {
   .rise,
   .beat {
     animation: none !important;
+  }
+}
+
+/* About me modal: fade and lift in, dimmed blurred backdrop. */
+.about-modal::backdrop {
+  background: rgba(20, 20, 20, 0.45);
+  backdrop-filter: blur(4px);
+}
+.about-modal[open] {
+  animation: about-in 220ms var(--ease);
+}
+@keyframes about-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .about-modal[open] {
+    animation: none;
+  }
+}
+
+/* Photo postcards: a fixed tilt per card that straightens and lifts on hover. */
+.postcard {
+  transform: rotate(var(--tilt, 0deg));
+  transition: transform 260ms var(--ease), box-shadow 260ms var(--ease);
+}
+.postcard:hover {
+  transform: rotate(0deg) translateY(-3px) scale(1.02);
+}
+@media (prefers-reduced-motion: reduce) {
+  .postcard {
+    transition: none;
   }
 }

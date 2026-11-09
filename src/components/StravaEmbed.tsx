@@ -80,7 +80,7 @@ export async function StravaEmbed({ className = "" }: { className?: string }) {
             <span className="font-semibold">{latest.name}</span>
             <span className="text-white/85">
               {sportLabel[latest.sport]} · {latest.distanceM > 0 ? `${(latest.distanceM / 1000).toFixed(1)} km · ` : ""}
-              {fmtHM(latest.movingTimeSec)} · {fmtShort(latest.startLocal)}
+              {fmtHM(latest.movingTimeSec)} · {fmtShort(latest.date)}
             </span>
           </Link>
         ) : (

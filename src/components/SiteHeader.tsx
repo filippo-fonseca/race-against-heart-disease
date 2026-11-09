@@ -6,7 +6,7 @@ import { site } from "@/lib/site";
 /** "admin" renders the bar with no active tab. */
 type Current = "letter" | "training" | "admin";
 
-/** Sticky, translucent top bar shared by every page. */
+/** Floating, rounded, translucent bar shared by every page. Sticks a little below the top edge. */
 export function SiteHeader({ current }: { current: Current }) {
   const tab = (active: boolean) =>
     `label whitespace-nowrap !tracking-[0.06em] transition-colors ${
@@ -14,11 +14,11 @@ export function SiteHeader({ current }: { current: Current }) {
     }`;
 
   return (
-    <header className="sticky top-0 z-50 border-b border-rule bg-desk/85 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 max-w-[1200px] items-center justify-between px-4 sm:px-6">
+    <header className="sticky top-0 z-50 px-3 pt-3 sm:px-4 sm:pt-4">
+      <div className="mx-auto flex h-14 max-w-[960px] items-center justify-between rounded-2xl bg-paper/80 pl-3 pr-2.5 shadow-[var(--shadow-surface)] backdrop-blur-xl sm:pl-4 sm:pr-3">
         <Link href="/" className="flex items-center gap-2.5" aria-label={site.name}>
           <Mark className="beat h-8 w-8 text-red" />
-          <span className="hidden font-serif text-[15px] tracking-tight sm:inline">{site.name}</span>
+          <span className="hidden font-serif text-[16px] font-bold tracking-tight sm:inline">{site.name}</span>
         </Link>
 
         <nav className="flex items-center gap-5 sm:gap-7" aria-label="Site">

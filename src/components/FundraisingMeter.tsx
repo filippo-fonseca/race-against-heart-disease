@@ -28,7 +28,7 @@ export async function FundraisingMeter({ className = "" }: { className?: string 
           {f.donors !== null ? `${f.donors} ${f.donors === 1 ? "gift" : "gifts"} · ` : ""}
           100% to {site.charity.name}
         </span>
-        <span className={f.live ? "" : "!text-ink-soft/70"}>
+        <span className={f.live ? "" : "!text-ink-faint"}>
           {f.live ? "Live from Team IMF" : "Registration opens soon"}
         </span>
       </div>
@@ -96,7 +96,7 @@ export async function CampaignHero({ className = "" }: { className?: string }) {
             100% to {site.charity.name}
           </span>
           <span aria-hidden="true">·</span>
-          <span className={f.live ? "" : "!text-ink-soft/70"}>
+          <span className={f.live ? "" : "!text-ink-faint"}>
             {f.live ? "Live from Team IMF" : "Registration opens soon"}
           </span>
         </div>
