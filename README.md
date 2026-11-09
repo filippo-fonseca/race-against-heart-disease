@@ -31,7 +31,17 @@ NEXT_PUBLIC_DONATE_URL=https://ironmanfoundation.donordrive.com/participant/...
 
 Everything editable (copy, dates, links, the cited stats) lives in [`src/lib/site.ts`](src/lib/site.ts).
 
-The training log and its backend are documented in [`docs/TRAINING-LOG.md`](docs/TRAINING-LOG.md) and [`docs/ADMIN.md`](docs/ADMIN.md). A remote MCP server at `/api/mcp` lets a Grok bot manage the plan, activities and photos: see [`docs/MCP.md`](docs/MCP.md) and the bot's system prompt in [`docs/GROK-BOT-PROMPT.md`](docs/GROK-BOT-PROMPT.md).
+## The training log
+
+`/training` is a purely retroactive log of the build, from day 1 (November 2, 2026) to race day (day 154). There is no plan: every swim, ride, run and lift comes from Strava, shown as a feed of activity cards with photos next to a rail of charts. The homepage carries a Strava card with the running totals.
+
+```
+Strava ──webhook / daily cron / backfill──▶ Supabase (cache) ──▶ /training, homepage card
+  ▲
+  └── Grok bot via /api/mcp (writes activities to Strava, not to the DB)
+```
+
+The design, data flow, sport buckets and setup are in [`docs/TRAINING-LOG.md`](docs/TRAINING-LOG.md); the private `/admin` page (recent activities and a Strava resync) in [`docs/ADMIN.md`](docs/ADMIN.md). The Grok bot's MCP server is described in [`docs/MCP.md`](docs/MCP.md), with its system prompt in [`docs/GROK-BOT-PROMPT.md`](docs/GROK-BOT-PROMPT.md).
 
 ## Sources
 
