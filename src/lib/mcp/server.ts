@@ -71,7 +71,9 @@ const athleteChoice = z
   .enum(["filippo", "emir", "both"])
   .describe("filippo, emir, or both. Omitted means both.");
 
-const sport = z.enum(["swim", "bike", "run", "strength", "other"]).describe("swim, bike, run, strength, or other.");
+const sport = z
+  .enum(["swim", "bike", "run", "strength"])
+  .describe("Sport bucket: swim, bike (indoor rides included), run, or strength (shown as LIFT on the site; covers HIIT, weights and anything that is not swim, bike or run).");
 
 export function registerTools(server: McpServer): void {
   server.registerTool(
@@ -130,14 +132,14 @@ export function registerTools(server: McpServer): void {
             z.object({
               athlete: athleteChoice.describe("Who did it: filippo, emir, or both (one activity each)."),
               sport,
-              sport_type: z.string().max(40).nullish().describe("Optional exact Strava sport type, overriding the sport default (Swim, Ride, Run, WeightTraining, Workout), e.g. VirtualRide, TrailRun, Yoga, Rowing."),
+              sport_type: z.string().max(40).nullish().describe("Optional exact Strava sport type, overriding the bucket default (swim Swim, bike Ride, run Run, strength HighIntensityIntervalTraining), e.g. WeightTraining or Crossfit for strength, VirtualRide for Zwift, TrailRun."),
               date: date("Day it happened, in America/New_York"),
               start_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:MM, 24 hour.").nullish().describe("Local start time HH:MM (24 hour). Omit if unknown (sent as 12:00)."),
               name: z.string().max(120).nullish().describe('Title, e.g. "Masters swim" or "Leg day". Defaults to the sport.'),
               description: z.string().max(4000).nullish().describe("Notes in the athlete's words: the main set, how it felt. Put heart rate or power here if the athlete mentions them."),
               duration_min: z.number().positive().max(1440).describe("How long the session took, in minutes (required)."),
-              distance_km: z.number().min(0).max(1000).nullish().describe("Distance in km (swims too: 2 means 2000 m)."),
-              trainer: z.boolean().nullish().describe("true for an indoor trainer or treadmill session."),
+              distance_km: z.number().min(0).max(1000).nullish().describe("Distance in km (swims too: 2 means 2000 m). Optional; for bike sessions time matters more, so leave it out unless the athlete gave it."),
+              trainer: z.boolean().nullish().describe("true for an indoor trainer (bike) or treadmill (run) session; an indoor ride stays in the bike bucket."),
               commute: z.boolean().nullish().describe("true if it was a commute."),
             }),
           )
@@ -162,8 +164,8 @@ export function registerTools(server: McpServer): void {
           .object({
             name: z.string().max(120).nullish(),
             description: z.string().max(4000).nullish(),
-            sport: sport.nullish().describe("New sport; sends the default Strava sport type for it. Ignored if it matches the current sport."),
-            sport_type: z.string().max(40).nullish().describe("Exact Strava sport type, e.g. VirtualRide, TrailRun. Takes priority over sport."),
+            sport: sport.nullish().describe("New sport bucket; sends that bucket's default Strava sport type. Ignored if the activity is already in that bucket."),
+            sport_type: z.string().max(40).nullish().describe("Exact Strava sport type, e.g. WeightTraining, VirtualRide, TrailRun. Takes priority over sport."),
             trainer: z.boolean().nullish().describe("Indoor trainer or treadmill session."),
             commute: z.boolean().nullish(),
             hide_from_home: z.boolean().nullish().describe("true mutes it from Strava home feeds."),

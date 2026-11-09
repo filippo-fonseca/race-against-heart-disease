@@ -94,10 +94,20 @@ test("sportTotals buckets everything that is not swim, bike or run as strength (
 test("buildStravaCreate maps a session to Strava's create fields with sane defaults", () => {
   const opts = { today: "2026-11-09", index: 0 };
   assert.deepEqual(buildStravaCreate({ athlete: "filippo", sport: "strength", date: "2026-11-09", duration_min: 45 }, opts), {
-    name: "Strength",
-    sport_type: "WeightTraining",
+    name: "Lift",
+    sport_type: "HighIntensityIntervalTraining",
     start_date_local: "2026-11-09T12:00:00",
     elapsed_time: 2700,
+  });
+  // An explicit Strava type wins over the bucket default.
+  assert.equal(buildStravaCreate({ athlete: "filippo", sport: "strength", sport_type: "WeightTraining", date: "2026-11-09", duration_min: 45 }, opts).sport_type, "WeightTraining");
+  // Indoor ride: a Ride with trainer set, time without distance.
+  assert.deepEqual(buildStravaCreate({ athlete: "filippo", sport: "bike", trainer: true, date: "2026-11-09", duration_min: 75 }, opts), {
+    name: "Indoor ride",
+    sport_type: "Ride",
+    start_date_local: "2026-11-09T12:00:00",
+    elapsed_time: 4500,
+    trainer: true,
   });
   const swim = buildStravaCreate(
     { athlete: "emir", sport: "swim", date: "2026-11-08", start_time: "06:15", duration_min: 40.5, distance_km: 1.8, name: " Masters ", description: " 10 x 100 ", trainer: false },
@@ -122,6 +132,7 @@ test("buildStravaCreate refuses future dates, missing durations and bad sport ty
   assert.throws(() => buildStravaCreate({ athlete: "filippo", sport: "run", date: "2026-11-09", duration_min: 0 }, opts), /duration_min is required/);
   assert.throws(() => buildStravaCreate({ athlete: "filippo", sport: "run", date: "2026-11-09", duration_min: 30, sport_type: "trail run" }, opts), /not a Strava sport type/);
   assert.throws(() => buildStravaCreate({ athlete: "filippo", sport: "run", date: "2026-11-09", duration_min: 30, start_time: "7:00" }, opts), /HH:MM/);
+  assert.throws(() => buildStravaCreate({ athlete: "filippo", sport: "other", date: "2026-11-09", duration_min: 30 } as never, opts), /swim, bike, run or strength/);
 });
 
 test("buildStravaUpdate sends only Strava-updatable fields and skips no-op sport changes", () => {
@@ -137,6 +148,10 @@ test("buildStravaUpdate sends only Strava-updatable fields and skips no-op sport
   assert.throws(() => buildStravaUpdate(ride, { name: "  " }), /cannot be empty/);
   // Fields Strava cannot update are not part of the contract at all.
   assert.throws(() => buildStravaUpdate(ride, { distance_km: 5 } as never), /nothing to update/);
+  // A stored "other" counts as strength, so strength is a no-op and keeps WeightTraining.
+  const weights = { sport: "other" as never, stravaSportType: "WeightTraining" };
+  assert.throws(() => buildStravaUpdate(weights, { sport: "strength" }), /nothing to update/);
+  assert.deepEqual(buildStravaUpdate({ sport: "run" as const, stravaSportType: "Run" }, { sport: "strength" }), { sport_type: "HighIntensityIntervalTraining" });
 });
 
 const plannedCreate = (index: number): PlannedCreate => ({

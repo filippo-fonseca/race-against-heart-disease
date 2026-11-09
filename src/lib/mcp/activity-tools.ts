@@ -4,6 +4,8 @@ import { createActivity, getValidToken, nearRateLimit, StravaError, StravaWriteA
 import { syncActivity, syncAthlete, TRAINING_START, type SyncStats } from "../training/sync";
 import type { Activity, AthleteSlug } from "../training/types";
 import {
+  bucketOf,
+  BUCKET_LABEL,
   buildStravaCreate,
   buildStravaUpdate,
   compactActivity,
@@ -103,8 +105,8 @@ export async function logActivities(args: { activities: LogActivityInput[]; allo
   for (const p of planned) {
     const date = p.payload.start_date_local.slice(0, 10);
     const sport = args.activities[p.index].sport;
-    for (const c of nearby.filter((n) => n.athlete === p.athlete && n.date === date && n.sport === sport)) {
-      clashes.push(`activities[${p.index}]: ${p.athlete} already has a ${c.sport} on ${date} ("${c.name}", id ${c.id}).`);
+    for (const c of nearby.filter((n) => n.athlete === p.athlete && n.date === date && bucketOf(n.sport) === sport)) {
+      clashes.push(`activities[${p.index}]: ${p.athlete} already has a ${BUCKET_LABEL[sport].toLowerCase()} session on ${date} ("${c.name}", id ${c.id}).`);
     }
     if (date < TRAINING_START_DATE) warnings.push(`activities[${p.index}]: ${date} is before day 1 of training (${TRAINING_START_DATE}), so the site will not show it.`);
   }

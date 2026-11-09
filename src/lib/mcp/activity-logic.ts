@@ -1,6 +1,6 @@
 import type { ISODate } from "../training/dates";
 import type { CreateActivityInput, UpdateActivityInput } from "../training/strava";
-import type { Activity, AthleteSlug, Sport } from "../training/types";
+import type { Activity, AthleteSlug } from "../training/types";
 import { assertDate, isClock, McpToolError, type AthleteChoice } from "./validate";
 
 /**
@@ -56,21 +56,24 @@ export function sportTotals(rows: TotalsRow[]): Record<SportBucket, BucketTotals
   ) as Record<SportBucket, BucketTotals>;
 }
 
-/** The Strava sport_type sent for each sport when the caller gives none. */
-export const SPORT_TYPE_FOR: Record<Sport, string> = {
+/**
+ * The Strava sport_type sent for each bucket when the caller gives none.
+ * Strength defaults to HIIT, the usual session; the bot passes an explicit
+ * sport_type (WeightTraining, Crossfit, Yoga...) when the athlete says so.
+ * An indoor ride is a Ride with trainer set (or an explicit VirtualRide).
+ */
+export const SPORT_TYPE_FOR: Record<SportBucket, string> = {
   swim: "Swim",
   bike: "Ride",
   run: "Run",
-  strength: "WeightTraining",
-  other: "Workout",
+  strength: "HighIntensityIntervalTraining",
 };
 
-const DEFAULT_NAME: Record<Sport, string> = {
+const DEFAULT_NAME: Record<SportBucket, string> = {
   swim: "Swim",
   bike: "Ride",
   run: "Run",
-  strength: "Strength",
-  other: "Workout",
+  strength: "Lift",
 };
 
 /** Start time used when the caller does not give one (noon keeps the date safe in any zone). */
@@ -88,8 +91,8 @@ function checkSportType(value: string, where: string): string {
 /** One session for log_activities, as the bot sends it. */
 export interface LogActivityInput {
   athlete: AthleteChoice;
-  sport: Sport;
-  /** Overrides the sport mapping, e.g. "VirtualRide". */
+  sport: SportBucket;
+  /** Overrides the bucket's default, e.g. "VirtualRide" or "WeightTraining". */
   sport_type?: string | null;
   date: string;
   start_time?: string | null;
@@ -123,8 +126,12 @@ export function buildStravaCreate(input: LogActivityInput, opts: { today: ISODat
   const clock = input.start_time ?? DEFAULT_START;
   if (!isClock(clock)) throw new McpToolError(`${where}.start_time "${clock}" must be HH:MM (24 hour).`);
 
+  if (!(SPORT_BUCKETS as readonly string[]).includes(input.sport)) {
+    throw new McpToolError(`${where}.sport "${String(input.sport)}" must be swim, bike, run or strength.`);
+  }
+  const fallbackName = input.sport === "bike" && input.trainer ? "Indoor ride" : DEFAULT_NAME[input.sport];
   const payload: CreateActivityInput = {
-    name: (input.name ?? "").trim() || DEFAULT_NAME[input.sport],
+    name: (input.name ?? "").trim() || fallbackName,
     sport_type: input.sport_type ? checkSportType(input.sport_type, `${where}.sport_type`) : SPORT_TYPE_FOR[input.sport],
     start_date_local: `${date}T${clock}:00`,
     elapsed_time: Math.round(minutes * 60),
@@ -142,7 +149,7 @@ export interface ActivityUpdateFields {
   name?: string | null;
   /** null or "" clears it. */
   description?: string | null;
-  sport?: Sport | null;
+  sport?: SportBucket | null;
   sport_type?: string | null;
   trainer?: boolean | null;
   commute?: boolean | null;
@@ -151,8 +158,9 @@ export interface ActivityUpdateFields {
 
 /**
  * The `PUT /activities/{id}` payload for an update_activity request. A sport
- * change only sends a new sport_type when the sport really changes, so
- * "bike" on a VirtualRide keeps it virtual. Throws on an empty patch.
+ * change only sends a new sport_type when the bucket really changes, so
+ * "bike" on a VirtualRide keeps it virtual and "strength" on WeightTraining
+ * keeps it weights. Throws on an empty patch.
  */
 export function buildStravaUpdate(current: Pick<Activity, "sport" | "stravaSportType">, fields: ActivityUpdateFields): UpdateActivityInput {
   const patch: UpdateActivityInput = {};
@@ -164,7 +172,7 @@ export function buildStravaUpdate(current: Pick<Activity, "sport" | "stravaSport
   if (fields.description !== undefined) patch.description = (fields.description ?? "").trim();
   if (fields.sport_type) {
     patch.sport_type = checkSportType(fields.sport_type, "fields.sport_type");
-  } else if (fields.sport && fields.sport !== current.sport) {
+  } else if (fields.sport && fields.sport !== bucketOf(current.sport)) {
     patch.sport_type = SPORT_TYPE_FOR[fields.sport];
   }
   if (patch.sport_type === current.stravaSportType) delete patch.sport_type;
@@ -230,7 +238,8 @@ export function compactActivity(a: Activity) {
   return {
     id: a.id,
     athlete: a.athlete,
-    sport: a.sport,
+    sport: bucketOf(a.sport),
+    sport_label: BUCKET_LABEL[bucketOf(a.sport)],
     sport_type: a.stravaSportType,
     name: a.name,
     date: a.date,
