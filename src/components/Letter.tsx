@@ -5,6 +5,7 @@ import { site, stats } from "@/lib/site";
 import { AboutModal } from "./AboutModal";
 import { CampaignHero } from "./FundraisingMeter";
 import { Mark } from "./marks";
+import { Postcards } from "./Postcards";
 import { SocialIcon, SocialRow, liveSocials } from "./Socials";
 import { StravaEmbed } from "./StravaEmbed";
 
@@ -194,6 +195,9 @@ export function Letter() {
         </div>
 
       </div>
+
+      {/* who is writing: the about text beside photo postcards */}
+      <Postcards className="rise mt-20" />
 
       {/* the figures behind the argument */}
       <section className="rise mt-20" style={step(10)} aria-label="Campaign figures">
