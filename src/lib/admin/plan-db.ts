@@ -93,6 +93,19 @@ export async function listPlanSessions(range: { from?: string; to?: string } = {
   return ((data ?? []) as unknown as PlanSessionRow[]).map(toPlanSession);
 }
 
+/** The sessions with these ids (missing ids are simply absent), sorted by date then id. */
+export async function getPlanSessionsByIds(ids: string[]): Promise<PlanSession[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await db()
+    .from("plan_sessions")
+    .select(PLAN_COLUMNS)
+    .in("id", ids)
+    .order("date")
+    .order("id");
+  if (error) throw error;
+  return ((data ?? []) as unknown as PlanSessionRow[]).map(toPlanSession);
+}
+
 export interface PlanStats {
   count: number;
   /** Earliest and latest session dates, null when the table is empty. */
