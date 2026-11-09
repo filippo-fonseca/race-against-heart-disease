@@ -31,6 +31,8 @@ NEXT_PUBLIC_DONATE_URL=https://ironmanfoundation.donordrive.com/participant/...
 
 Everything editable (copy, dates, links, the cited stats) lives in [`src/lib/site.ts`](src/lib/site.ts).
 
+The training log and its backend are documented in [`docs/TRAINING-LOG.md`](docs/TRAINING-LOG.md) and [`docs/ADMIN.md`](docs/ADMIN.md). A remote MCP server at `/api/mcp` lets a Grok bot manage the plan, activities and photos: see [`docs/MCP.md`](docs/MCP.md) and the bot's system prompt in [`docs/GROK-BOT-PROMPT.md`](docs/GROK-BOT-PROMPT.md).
+
 ## Sources
 
 Figures quoted on the page, with the primary source for each:
