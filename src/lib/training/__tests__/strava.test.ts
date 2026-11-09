@@ -106,7 +106,7 @@ test("a 401 or 403 on a write becomes StravaWriteAccessError with the re-auth hi
       assert.ok(err instanceof StravaError);
       assert.equal(err.status, 401);
       assert.match(err.message, /activity:write/);
-      assert.match(err.message, /npm run strava:auth -- --athlete <slug>/);
+      assert.match(err.message, /npm run strava:auth` to grant write access/);
       return true;
     },
   );

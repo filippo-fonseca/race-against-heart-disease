@@ -125,7 +125,7 @@ export class StravaWriteAccessError extends StravaError {
   constructor(status: number, body: string) {
     super(
       `Strava refused the write (HTTP ${status}): the stored token lacks activity:write permission or was revoked. ` +
-        "Re-run `npm run strava:auth -- --athlete <slug>` to grant write access.",
+        "Re-run `npm run strava:auth` to grant write access.",
       status,
       body,
     );

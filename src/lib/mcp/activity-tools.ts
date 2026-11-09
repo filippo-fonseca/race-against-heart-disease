@@ -1,8 +1,8 @@
-import { loadAthleteRow, loadAthleteRows, type AthleteRow } from "../training/db";
+import { loadAthleteRow, type AthleteRow } from "../training/db";
 import { getActivity, listActivities } from "../training/queries";
 import { createActivity, getValidToken, nearRateLimit, StravaError, StravaWriteAccessError, updateActivity } from "../training/strava";
 import { syncActivity, syncAthlete, TRAINING_START, type SyncStats } from "../training/sync";
-import type { Activity, AthleteSlug } from "../training/types";
+import type { Activity } from "../training/types";
 import {
   bucketOf,
   BUCKET_LABEL,
@@ -16,7 +16,7 @@ import {
   type PlannedCreate,
 } from "./activity-logic";
 import { invalidateTraining } from "./cache";
-import { assertDate, athletesFor, McpToolError, todayForAthletes, TRAINING_START_DATE, validateRange, type AthleteChoice } from "./validate";
+import { assertDate, ATHLETE, McpToolError, todayForAthletes, TRAINING_START_DATE, validateRange } from "./validate";
 
 /**
  * Activity tools. Strava is the single source of truth: these tools write
@@ -38,17 +38,18 @@ export function parseActivityId(raw: string | number): number {
   return n;
 }
 
-/** An activity that is already in the mirror (so it exists on Strava and belongs to a known athlete). */
+/** An activity that is already in the mirror (so it exists on Strava) and belongs to the tracked athlete. */
 export async function requireActivity(id: number): Promise<Activity> {
   const activity = await getActivity(id);
   if (!activity) throw new McpToolError(`No activity with id ${id}. Call list_activities to find it, or resync_strava if it is new on Strava.`);
+  if (activity.athlete !== ATHLETE) throw new McpToolError(`Activity ${id} is not one of ${ATHLETE}'s activities.`);
   return activity;
 }
 
 /** Turn Strava write failures into messages the bot can relay. */
-function stravaFailure(err: unknown, athlete: AthleteSlug): never {
+function stravaFailure(err: unknown): never {
   if (err instanceof StravaWriteAccessError) {
-    throw new McpToolError(err.message.replace("<slug>", athlete));
+    throw new McpToolError(err.message);
   }
   if (err instanceof StravaError) {
     throw new McpToolError(`${err.message}. Strava said: ${err.body.slice(0, 300) || "(no body)"}`);
@@ -56,23 +57,22 @@ function stravaFailure(err: unknown, athlete: AthleteSlug): never {
   throw err;
 }
 
-/** The athlete's row, refusing athletes whose Strava is not linked. */
-async function linkedAthlete(slug: AthleteSlug, rows?: AthleteRow[]): Promise<AthleteRow> {
-  const row = rows ? (rows.find((r) => r.slug === slug) ?? null) : await loadAthleteRow(slug);
+/** Filippo's athlete row, refusing to write when Strava is not linked. */
+async function linkedAthlete(): Promise<AthleteRow> {
+  const row = await loadAthleteRow(ATHLETE);
   if (!row || !row.refresh_token) {
-    throw new McpToolError(`${slug} has not linked Strava, so activities cannot be written for them. Run \`npm run strava:auth -- --athlete ${slug}\` first.`);
+    throw new McpToolError("Strava is not linked, so activities cannot be written. Run `npm run strava:auth` first.");
   }
   return row;
 }
 
-export async function listActivitiesTool(args: { from: string; to: string; athlete?: AthleteChoice }) {
+
+export async function listActivitiesTool(args: { from: string; to: string }) {
   const { from, to } = validateRange(args.from, args.to, ACTIVITY_LIST_MAX_DAYS);
-  const athlete = args.athlete && args.athlete !== "both" ? args.athlete : undefined;
-  const rows = await listActivities({ from, to, athlete });
+  const rows = await listActivities({ from, to, athlete: ATHLETE });
   return {
     from,
     to,
-    athlete: athlete ?? "both",
     count: rows.length,
     activities: rows.map(compactActivity),
   };
@@ -90,23 +90,20 @@ export async function logActivities(args: { activities: LogActivityInput[]; allo
   const today = todayForAthletes();
   const planned: PlannedCreate[] = [];
   args.activities.forEach((input, index) => {
-    const payload = buildStravaCreate(input, { today, index });
-    for (const athlete of athletesFor(input.athlete)) planned.push({ index, athlete, payload });
+    planned.push({ index, athlete: ATHLETE, payload: buildStravaCreate(input, { today, index }) });
   });
 
-  const rows = await loadAthleteRows();
-  const athletes = new Map<AthleteSlug, AthleteRow>();
-  for (const slug of new Set(planned.map((p) => p.athlete))) athletes.set(slug, await linkedAthlete(slug, rows));
+  const athlete = await linkedAthlete();
 
   const dates = planned.map((p) => p.payload.start_date_local.slice(0, 10)).sort();
-  const nearby = await listActivities({ from: dates[0], to: dates[dates.length - 1] });
+  const nearby = await listActivities({ athlete: ATHLETE, from: dates[0], to: dates[dates.length - 1] });
   const warnings: string[] = [];
   const clashes: string[] = [];
   for (const p of planned) {
     const date = p.payload.start_date_local.slice(0, 10);
     const sport = args.activities[p.index].sport;
-    for (const c of nearby.filter((n) => n.athlete === p.athlete && n.date === date && bucketOf(n.sport) === sport)) {
-      clashes.push(`activities[${p.index}]: ${p.athlete} already has a ${BUCKET_LABEL[sport].toLowerCase()} session on ${date} ("${c.name}", id ${c.id}).`);
+    for (const c of nearby.filter((n) => n.date === date && bucketOf(n.sport) === sport)) {
+      clashes.push(`activities[${p.index}]: there is already a ${BUCKET_LABEL[sport].toLowerCase()} session on ${date} ("${c.name}", id ${c.id}).`);
     }
     if (date < TRAINING_START_DATE) warnings.push(`activities[${p.index}]: ${date} is before day 1 of training (${TRAINING_START_DATE}), so the site will not show it.`);
   }
@@ -119,20 +116,19 @@ export async function logActivities(args: { activities: LogActivityInput[]; allo
   const result = await createSequentially(planned, {
     nearLimit: () => nearRateLimit(RATE_LIMIT_MARGIN),
     create: async (p) => {
-      const athlete = athletes.get(p.athlete)!;
       const token = await getValidToken(athlete);
       let created;
       try {
         created = await createActivity(token, p.payload);
       } catch (err) {
-        stravaFailure(err, p.athlete);
+        stravaFailure(err);
       }
       // Mirror it now; the webhook will deliver the same activity again later.
       try {
         return { activity: compactActivity(await syncActivity(athlete, created.id)), sync_error: null };
       } catch (err) {
         return {
-          activity: { id: String(created.id), athlete: p.athlete, name: created.name, strava_url: stravaActivityUrl(created.id) },
+          activity: { id: String(created.id), name: created.name, strava_url: stravaActivityUrl(created.id) },
           sync_error: `Created on Strava but not mirrored yet (${err instanceof Error ? err.message : String(err)}); the webhook or resync_strava will bring it in.`,
         };
       }
@@ -150,7 +146,7 @@ export async function logActivities(args: { activities: LogActivityInput[]; allo
       ? {
           reason: result.stopped.reason,
           message: result.stopped.message,
-          not_logged: result.remaining.map((p) => ({ index: p.index, athlete: p.athlete, name: p.payload.name, date: p.payload.start_date_local.slice(0, 10) })),
+          not_logged: result.remaining.map((p) => ({ index: p.index, name: p.payload.name, date: p.payload.start_date_local.slice(0, 10) })),
         }
       : null,
     warnings: [...warnings, ...(clashes.length > 0 ? clashes.map((c) => `Logged despite: ${c}`) : [])],
@@ -162,12 +158,12 @@ export async function updateActivityTool(args: { id: string | number; fields: Ac
   const id = parseActivityId(args.id);
   const current = await requireActivity(id);
   const patch = buildStravaUpdate(current, args.fields);
-  const athlete = await linkedAthlete(current.athlete);
+  const athlete = await linkedAthlete();
   const token = await getValidToken(athlete);
   try {
     await updateActivity(token, id, patch);
   } catch (err) {
-    stravaFailure(err, current.athlete);
+    stravaFailure(err);
   }
   const updated = await syncActivity(athlete, id);
   invalidateTraining();
@@ -194,34 +190,25 @@ export async function deleteActivityTool(args: { id: string | number }) {
   };
 }
 
-export async function resyncStrava(args: { athlete?: AthleteChoice; since?: string; budget?: number }) {
-  const wanted = new Set(athletesFor(args.athlete));
+export async function resyncStrava(args: { since?: string; budget?: number }) {
   const since = args.since ? new Date(`${assertDate(args.since, "since")}T00:00:00Z`) : TRAINING_START;
-  // Two athletes inside the route's 60 s: a detail fetch is one or two Strava calls.
-  const budget = Math.min(Math.max(args.budget ?? 10, 0), 25);
-  const rows = (await loadAthleteRows()).filter((a) => wanted.has(a.slug));
-  const results: (SyncStats | { athlete: string; skipped_reason: string })[] = [];
-  for (const athlete of rows) {
-    if (!athlete.refresh_token) {
-      results.push({ athlete: athlete.slug, skipped_reason: "Strava is not linked for this athlete." });
-      continue;
-    }
-    try {
-      results.push(await syncAthlete(athlete, { since, budget }));
-    } catch (err) {
-      results.push({ athlete: athlete.slug, listed: 0, upserted: 0, detailed: 0, skipped: 0, budgetExhausted: false, errors: [err instanceof Error ? err.message : String(err)] });
-    }
+  // Inside the route's 60 s: a detail fetch is one or two Strava calls.
+  const budget = Math.min(Math.max(args.budget ?? 20, 0), 40);
+  const athlete = await loadAthleteRow(ATHLETE);
+  if (!athlete || !athlete.refresh_token) {
+    return { since: since.toISOString().slice(0, 10), budget, result: null, skipped_reason: "Strava is not linked; run `npm run strava:auth`." };
   }
-  for (const slug of wanted) {
-    if (!rows.some((r) => r.slug === slug)) results.push({ athlete: slug, skipped_reason: "No athlete row yet (Strava never linked)." });
+  let result: SyncStats;
+  try {
+    result = await syncAthlete(athlete, { since, budget });
+  } catch (err) {
+    result = { athlete: athlete.slug, listed: 0, upserted: 0, detailed: 0, skipped: 0, budgetExhausted: false, errors: [err instanceof Error ? err.message : String(err)] };
   }
-  if (results.some((r) => "upserted" in r && r.upserted > 0)) invalidateTraining();
+  if (result.upserted > 0) invalidateTraining();
   return {
     since: since.toISOString().slice(0, 10),
-    budget_per_athlete: budget,
-    results,
-    note: results.some((r) => "budgetExhausted" in r && r.budgetExhausted)
-      ? "Budget or Strava rate limit reached: some activities were stored as summaries and will be detailed by the next run."
-      : null,
+    budget,
+    result,
+    note: result.budgetExhausted ? "Budget or Strava rate limit reached: some activities were stored as summaries and will be detailed by the next run." : null,
   };
 }

@@ -6,13 +6,14 @@ import type { AthleteSlug } from "../training/types";
  * touches the database or Next, so tests import it directly.
  */
 
-/** The athletes live and train on US Eastern time. */
+/** The athlete lives and trains on US Eastern time. */
 export const ATHLETE_TIME_ZONE = "America/New_York";
 
-export const ATHLETE_SLUGS: readonly AthleteSlug[] = ["filippo", "emir"];
-
-/** `filippo`, `emir`, or `both` (the tool-level athlete selector). */
-export type AthleteChoice = AthleteSlug | "both";
+/**
+ * The only athlete the site tracks. Typed as AthleteSlug so this compiles
+ * whether that type is just "filippo" or still a union.
+ */
+export const ATHLETE: AthleteSlug = "filippo";
 
 /**
  * A failure the caller (the LLM) can act on. Tools turn it into an MCP error
@@ -47,12 +48,6 @@ export function validateRange(from: unknown, to: unknown, maxDays: number): { fr
   if (days < 1) throw new McpToolError(`from (${f}) must be on or before to (${t}).`);
   if (days > maxDays) throw new McpToolError(`The range ${f} to ${t} spans ${days} days; the limit for this tool is ${maxDays}. Split it into smaller calls.`);
   return { from: f, to: t, days };
-}
-
-/** `both` (or nothing) means every athlete; otherwise the one slug. */
-export function athletesFor(choice: AthleteChoice | undefined | null): AthleteSlug[] {
-  if (!choice || choice === "both") return [...ATHLETE_SLUGS];
-  return [choice];
 }
 
 /** Day 1 of the training window. */

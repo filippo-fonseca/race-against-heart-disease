@@ -2,14 +2,14 @@ import { randomUUID } from "node:crypto";
 import { UPLOADED_PHOTO_PREFIX } from "../training/photos";
 import { listActivities } from "../training/queries";
 import { updateActivityPhotos } from "../training/sync";
-import type { Activity, ActivityPhoto, AthleteSlug } from "../training/types";
+import type { Activity, ActivityPhoto } from "../training/types";
 import { bucketOf, BUCKET_LABEL, type SportBucket } from "./activity-logic";
 import { parseActivityId, requireActivity } from "./activity-tools";
 import { invalidateTraining } from "./cache";
 import { applyPhotoEdit, compactPhoto, pickPhotoTarget, withoutPhoto } from "./photo-edit";
 import { checkImageUrl, decodeBase64Image, MAX_PHOTO_BYTES, redactUrl, storagePath, validateImage } from "./photo-logic";
 import { removeStoredPhotos, uploadPhoto } from "./photo-storage";
-import { assertDate, McpToolError } from "./validate";
+import { assertDate, ATHLETE, McpToolError } from "./validate";
 
 /**
  * add_photo, update_photo and remove_photo. Strava's API cannot upload
@@ -101,34 +101,29 @@ type Resolved = { activity: Activity } | { candidates: ReturnType<typeof candida
  * activity on a date (optionally narrowed to a sport bucket). Zero or
  * several matches come back as candidates instead of a guess.
  */
-async function resolveActivity(args: { activity_id?: string | number | null; date?: string | null; sport?: SportBucket | null; athlete: AthleteSlug }): Promise<Resolved> {
+async function resolveActivity(args: { activity_id?: string | number | null; date?: string | null; sport?: SportBucket | null }): Promise<Resolved> {
   if (args.activity_id !== undefined && args.activity_id !== null && String(args.activity_id).trim() !== "") {
-    const activity = await requireActivity(parseActivityId(args.activity_id));
-    if (activity.athlete !== args.athlete) {
-      throw new McpToolError(`Activity ${activity.id} belongs to ${activity.athlete}, not ${args.athlete}.`);
-    }
-    return { activity };
+    return { activity: await requireActivity(parseActivityId(args.activity_id)) };
   }
   if (!args.date) throw new McpToolError("Pass activity_id (from list_activities), or date (optionally with sport) to attach to that day's activity.");
   const day = assertDate(args.date, "date");
-  const sameDay = await listActivities({ athlete: args.athlete, from: day, to: day });
+  const sameDay = await listActivities({ athlete: ATHLETE, from: day, to: day });
   const target = pickPhotoTarget(sameDay, { date: day, sport: args.sport }, bucketOf);
   if (target.kind === "one") return { activity: target.activity };
   const what = args.sport ? `${BUCKET_LABEL[args.sport].toLowerCase()} activity` : "activity";
   if (target.kind === "none") {
     return {
       candidates: args.sport ? sameDay.map(candidate) : [],
-      reason: `${args.athlete} has no ${what} on ${day}${args.sport && sameDay.length > 0 ? " (other activities that day are listed)" : ""}. If the session was recorded, call resync_strava; if it was never recorded, create it with log_activities. Then retry with the activity id.`,
+      reason: `There is no ${what} on ${day}${args.sport && sameDay.length > 0 ? " (the other activities that day are listed)" : ""}. If the session was recorded, call resync_strava; if it was never recorded, create it with log_activities. Then retry with the activity id.`,
     };
   }
-  return { candidates: target.candidates.map(candidate), reason: `${args.athlete} has ${target.candidates.length} ${what === "activity" ? "activities" : `${what}s`} on ${day}. Ask which one and call again with its activity_id.` };
+  return { candidates: target.candidates.map(candidate), reason: `There are ${target.candidates.length} ${what === "activity" ? "activities" : `${what}s`} on ${day}. Ask which one and call again with its activity_id.` };
 }
 
 export async function addPhoto(args: ImageArgs & {
   activity_id?: string | number | null;
   date?: string | null;
   sport?: SportBucket | null;
-  athlete: AthleteSlug;
   caption?: string | null;
 }) {
   const has = hasImage(args);
@@ -151,7 +146,6 @@ export async function addPhoto(args: ImageArgs & {
   return {
     attached: true,
     activity_id: activity.id,
-    athlete: activity.athlete,
     date: activity.date,
     activity_name: activity.name,
     photo: compactPhoto(stored.photo, photos.findIndex((p) => p.id === stored.photo.id)),

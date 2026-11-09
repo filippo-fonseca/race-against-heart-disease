@@ -1,4 +1,5 @@
 import { config } from "dotenv";
+import type { AthleteSlug } from "../src/lib/training/types";
 
 /**
  * Load `.env.local` (then `.env`) before anything reads process.env. Imported
@@ -18,8 +19,15 @@ export function requireEnv(name: string): string {
   return value;
 }
 
-export function parseAthlete(value: string | undefined): "filippo" | "emir" {
-  if (value === "filippo" || value === "emir") return value;
-  console.error("Pass --athlete filippo or --athlete emir.");
+/** The only athlete the site tracks. */
+export const ATHLETE: AthleteSlug = "filippo";
+
+/**
+ * `--athlete` is optional and defaults to filippo, the only athlete the site
+ * tracks; anything else is refused.
+ */
+export function parseAthlete(value: string | undefined): AthleteSlug {
+  if (value === undefined || value === "" || value === ATHLETE) return ATHLETE;
+  console.error(`Only ${ATHLETE} is tracked; drop --athlete or pass --athlete ${ATHLETE}.`);
   process.exit(1);
 }

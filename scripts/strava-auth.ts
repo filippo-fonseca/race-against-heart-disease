@@ -7,15 +7,15 @@ import { upsertAthleteRow } from "../src/lib/training/db";
 import { authorizeUrl, exchangeCode, missingScopes, STRAVA_SCOPES } from "../src/lib/training/strava";
 
 /**
- * One-time Strava authorization for an athlete.
+ * One-time Strava authorization for Filippo, the only athlete the site tracks.
  *
- *   npm run strava:auth -- --athlete filippo
+ *   npm run strava:auth            (`--athlete filippo` is accepted and optional)
  *
  * Opens the consent page, catches the redirect on localhost:4567, exchanges
  * the code and upserts the athlete row (name, avatar, tokens). It asks for
  * activity:read_all and activity:write (the MCP tools create and edit
  * activities on Strava) and refuses to save unless both were granted, so an
- * athlete authorized before write access existed re-runs it once. The Strava app
+ * authorization made before write access existed is redone once. The Strava app
  * must list `localhost` as its Authorization Callback Domain.
  */
 

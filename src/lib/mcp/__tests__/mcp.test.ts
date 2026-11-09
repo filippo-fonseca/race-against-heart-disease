@@ -94,16 +94,16 @@ test("sportTotals buckets everything that is not swim, bike or run as strength (
 
 test("buildStravaCreate maps a session to Strava's create fields with sane defaults", () => {
   const opts = { today: "2026-11-09", index: 0 };
-  assert.deepEqual(buildStravaCreate({ athlete: "filippo", sport: "strength", date: "2026-11-09", duration_min: 45 }, opts), {
+  assert.deepEqual(buildStravaCreate({ sport: "strength", date: "2026-11-09", duration_min: 45 }, opts), {
     name: "Lift",
     sport_type: "HighIntensityIntervalTraining",
     start_date_local: "2026-11-09T12:00:00",
     elapsed_time: 2700,
   });
   // An explicit Strava type wins over the bucket default.
-  assert.equal(buildStravaCreate({ athlete: "filippo", sport: "strength", sport_type: "WeightTraining", date: "2026-11-09", duration_min: 45 }, opts).sport_type, "WeightTraining");
+  assert.equal(buildStravaCreate({ sport: "strength", sport_type: "WeightTraining", date: "2026-11-09", duration_min: 45 }, opts).sport_type, "WeightTraining");
   // Indoor ride: a Ride with trainer set, time without distance.
-  assert.deepEqual(buildStravaCreate({ athlete: "filippo", sport: "bike", trainer: true, date: "2026-11-09", duration_min: 75 }, opts), {
+  assert.deepEqual(buildStravaCreate({ sport: "bike", trainer: true, date: "2026-11-09", duration_min: 75 }, opts), {
     name: "Indoor ride",
     sport_type: "Ride",
     start_date_local: "2026-11-09T12:00:00",
@@ -111,7 +111,7 @@ test("buildStravaCreate maps a session to Strava's create fields with sane defau
     trainer: true,
   });
   const swim = buildStravaCreate(
-    { athlete: "emir", sport: "swim", date: "2026-11-08", start_time: "06:15", duration_min: 40.5, distance_km: 1.8, name: " Masters ", description: " 10 x 100 ", trainer: false },
+    { sport: "swim", date: "2026-11-08", start_time: "06:15", duration_min: 40.5, distance_km: 1.8, name: " Masters ", description: " 10 x 100 ", trainer: false },
     opts,
   );
   assert.deepEqual(swim, {
@@ -123,17 +123,17 @@ test("buildStravaCreate maps a session to Strava's create fields with sane defau
     distance: 1800,
     trainer: false,
   });
-  assert.equal(buildStravaCreate({ athlete: "filippo", sport: "bike", sport_type: "VirtualRide", date: "2026-11-09", duration_min: 60 }, opts).sport_type, "VirtualRide");
+  assert.equal(buildStravaCreate({ sport: "bike", sport_type: "VirtualRide", date: "2026-11-09", duration_min: 60 }, opts).sport_type, "VirtualRide");
 });
 
 test("buildStravaCreate refuses future dates, missing durations and bad sport types", () => {
   const opts = { today: "2026-11-09", index: 2 };
-  assert.throws(() => buildStravaCreate({ athlete: "filippo", sport: "run", date: "2026-11-10", duration_min: 30 }, opts), /activities\[2\]\.date .*future/);
-  assert.throws(() => buildStravaCreate({ athlete: "filippo", sport: "run", date: "2026-11-09" } as never, opts), /duration_min is required/);
-  assert.throws(() => buildStravaCreate({ athlete: "filippo", sport: "run", date: "2026-11-09", duration_min: 0 }, opts), /duration_min is required/);
-  assert.throws(() => buildStravaCreate({ athlete: "filippo", sport: "run", date: "2026-11-09", duration_min: 30, sport_type: "trail run" }, opts), /not a Strava sport type/);
-  assert.throws(() => buildStravaCreate({ athlete: "filippo", sport: "run", date: "2026-11-09", duration_min: 30, start_time: "7:00" }, opts), /HH:MM/);
-  assert.throws(() => buildStravaCreate({ athlete: "filippo", sport: "other", date: "2026-11-09", duration_min: 30 } as never, opts), /swim, bike, run or strength/);
+  assert.throws(() => buildStravaCreate({ sport: "run", date: "2026-11-10", duration_min: 30 }, opts), /activities\[2\]\.date .*future/);
+  assert.throws(() => buildStravaCreate({ sport: "run", date: "2026-11-09" } as never, opts), /duration_min is required/);
+  assert.throws(() => buildStravaCreate({ sport: "run", date: "2026-11-09", duration_min: 0 }, opts), /duration_min is required/);
+  assert.throws(() => buildStravaCreate({ sport: "run", date: "2026-11-09", duration_min: 30, sport_type: "trail run" }, opts), /not a Strava sport type/);
+  assert.throws(() => buildStravaCreate({ sport: "run", date: "2026-11-09", duration_min: 30, start_time: "7:00" }, opts), /HH:MM/);
+  assert.throws(() => buildStravaCreate({ sport: "other", date: "2026-11-09", duration_min: 30 } as never, opts), /swim, bike, run or strength/);
 });
 
 test("buildStravaUpdate sends only Strava-updatable fields and skips no-op sport changes", () => {
@@ -157,7 +157,7 @@ test("buildStravaUpdate sends only Strava-updatable fields and skips no-op sport
 
 const plannedCreate = (index: number): PlannedCreate => ({
   index,
-  athlete: "filippo",
+  athlete: "filippo" as const,
   payload: { name: `S${index}`, sport_type: "Run", start_date_local: "2026-11-08T12:00:00", elapsed_time: 600 },
 });
 
@@ -195,7 +195,7 @@ test("createSequentially stops before the rate limit and on the first failure", 
 test("compactActivity links to Strava and carries no manual source", () => {
   const a: Activity = {
     id: "16812345678",
-    athlete: "emir",
+    athlete: "filippo",
     sport: "run",
     stravaSportType: "Run",
     name: "Easy",

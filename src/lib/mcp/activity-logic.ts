@@ -2,7 +2,7 @@ import type { ISODate } from "../training/dates";
 import type { CreateActivityInput, UpdateActivityInput } from "../training/strava";
 import type { Activity, AthleteSlug } from "../training/types";
 import { compactPhoto } from "./photo-edit";
-import { assertDate, isClock, McpToolError, type AthleteChoice } from "./validate";
+import { assertDate, isClock, McpToolError } from "./validate";
 
 /**
  * Pure helpers for the activity tools. No database, no Next, no network:
@@ -91,7 +91,6 @@ function checkSportType(value: string, where: string): string {
 
 /** One session for log_activities, as the bot sends it. */
 export interface LogActivityInput {
-  athlete: AthleteChoice;
   sport: SportBucket;
   /** Overrides the bucket's default, e.g. "VirtualRide" or "WeightTraining". */
   sport_type?: string | null;
@@ -238,7 +237,6 @@ function round(n: number, places: number): number {
 export function compactActivity(a: Activity) {
   return {
     id: a.id,
-    athlete: a.athlete,
     sport: bucketOf(a.sport),
     sport_label: BUCKET_LABEL[bucketOf(a.sport)],
     sport_type: a.stravaSportType,

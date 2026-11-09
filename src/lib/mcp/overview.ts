@@ -1,9 +1,8 @@
 import { formatUsd, getFundraising } from "../fundraising";
 import { db } from "../training/db";
 import { listAthletes } from "../training/queries";
-import type { AthleteSlug } from "../training/types";
 import { sportTotals, type TotalsRow } from "./activity-logic";
-import { ATHLETE_SLUGS, ATHLETE_TIME_ZONE, todayForAthletes, TRAINING_START_DATE, trainingWindow } from "./validate";
+import { ATHLETE, ATHLETE_TIME_ZONE, todayForAthletes, TRAINING_START_DATE, trainingWindow } from "./validate";
 
 /**
  * Read-only tools: get_overview and get_fundraising. Server only (Supabase).
@@ -12,7 +11,6 @@ import { ATHLETE_SLUGS, ATHLETE_TIME_ZONE, todayForAthletes, TRAINING_START_DATE
  */
 
 interface ActivityTotalsRow extends TotalsRow {
-  athlete_slug: AthleteSlug;
   date: string;
 }
 
@@ -20,7 +18,8 @@ interface ActivityTotalsRow extends TotalsRow {
 async function activityRows(): Promise<ActivityTotalsRow[]> {
   const { data, error } = await db()
     .from("activities")
-    .select("athlete_slug, date, sport, moving_time_sec, distance_m")
+    .select("date, sport, moving_time_sec, distance_m")
+    .eq("athlete_slug", ATHLETE)
     .gte("date", TRAINING_START_DATE);
   if (error) throw error;
   return (data ?? []) as ActivityTotalsRow[];
@@ -30,25 +29,16 @@ export async function getOverview() {
   const today = todayForAthletes();
   const window = trainingWindow(today);
   const [athletes, rows] = await Promise.all([listAthletes(), activityRows()]);
-
-  const totals = Object.fromEntries(
-    ATHLETE_SLUGS.map((slug) => {
-      const mine = rows.filter((r) => r.athlete_slug === slug);
-      const last = mine.reduce<string | null>((acc, r) => (acc === null || r.date > acc ? r.date : acc), null);
-      return [slug, { activities: mine.length, last_activity_date: last, by_sport: sportTotals(mine) }];
-    }),
-  );
+  const me = athletes.find((a) => a.slug === ATHLETE);
+  const last = rows.reduce<string | null>((acc, r) => (acc === null || r.date > acc ? r.date : acc), null);
 
   return {
     today,
     time_zone: ATHLETE_TIME_ZONE,
     race: { name: "IRONMAN 70.3 Texas", date: window.race_day, days_to_go: window.days_to_race },
     training_window: window,
-    athletes: ATHLETE_SLUGS.map((slug) => {
-      const a = athletes.find((x) => x.slug === slug);
-      return { slug, name: a?.name ?? slug, strava_linked: a?.stravaId != null, in_database: a !== undefined };
-    }),
-    totals_since_day_1: totals,
+    athlete: { slug: ATHLETE, name: me?.name ?? "Filippo", strava_linked: me?.stravaId != null },
+    totals_since_day_1: { activities: rows.length, last_activity_date: last, by_sport: sportTotals(rows) },
   };
 }
 
