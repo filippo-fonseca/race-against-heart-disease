@@ -1,9 +1,11 @@
 import type { CSSProperties } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { site, stats } from "@/lib/site";
-import { Countdown } from "./Countdown";
-import { FundraisingMeter } from "./FundraisingMeter";
+import { CampaignHero } from "./FundraisingMeter";
 import { Mark } from "./marks";
+import { SocialIcon, SocialRow, liveSocials } from "./Socials";
+import { StravaEmbed } from "./StravaEmbed";
 
 /** Stagger index for the `.rise` animation. */
 const step = (i: number) => ({ "--i": i }) as CSSProperties;
@@ -11,38 +13,90 @@ const step = (i: number) => ({ "--i": i }) as CSSProperties;
 export function Letter() {
   return (
     <article
-      className="sheet relative mx-auto w-full max-w-[1200px] px-5 py-10 sm:px-12 sm:py-14 lg:px-16 lg:py-16"
+      className="sheet relative mx-auto w-full max-w-[960px] px-5 py-8 sm:px-12 sm:py-10 lg:px-16 lg:py-12"
       aria-labelledby="letter-title"
     >
-      <h1 id="letter-title" className="sr-only">
-        {site.name}
-      </h1>
-
       {/* letterhead */}
-      <header className="rise flex flex-wrap items-end justify-between gap-4" style={step(0)}>
-        <div className="flex items-center gap-3">
-          <Mark className="h-9 w-9 text-red" />
-          <div className="leading-none">
-            <div className="font-serif text-[1.15rem] tracking-tight">{site.name}</div>
-            <div className="label mt-1.5 whitespace-nowrap">
-              {site.race.name}
-              <span className="hidden sm:inline">
-                {" "}
-                · {site.race.city}, {site.race.stateAbbr}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="sm:text-right">
-          <div className="label">Letter No. 01</div>
-          <Countdown className="label mt-1.5 block !text-red" />
+      <header className="rise flex flex-col items-center gap-2 text-center" style={step(0)}>
+        <Mark className="beat h-12 w-12 text-red sm:h-14 sm:w-14" />
+        <div className="font-serif text-[1.25rem] leading-none tracking-tight sm:text-[1.4rem]">{site.name}</div>
+        <div className="label">
+          {site.race.name} · {site.race.city}, {site.race.stateAbbr} · {site.race.dateLabel}
         </div>
       </header>
-      <div className="rise mt-6 h-px w-full bg-red" style={step(1)} />
 
-      <div className="mt-12 grid gap-12 lg:grid-cols-[minmax(0,1fr)_17rem] lg:gap-20">
+      {/* what this is, in one line */}
+      <h1
+        id="letter-title"
+        className="rise mx-auto mt-5 max-w-[24ch] text-balance text-center font-serif text-[1.9rem] font-medium leading-[1.1] tracking-tight text-ink sm:max-w-[42ch] sm:text-[2.5rem]"
+        style={step(1)}
+      >
+        I have joined Team IRONMAN Foundation to help fight{" "}
+        <span className="text-red">heart disease in youth.</span>
+      </h1>
+      <p
+        className="rise mx-auto mt-3 max-w-[60ch] text-balance text-center font-serif text-[1.15rem] leading-snug text-ink-soft sm:text-[1.3rem]"
+        style={step(1)}
+      >
+        In April, I will be <strong className="font-semibold text-ink">racing {site.race.name}</strong> and need your support :)
+      </p>
+
+      {/* byline */}
+      <div className="rise mt-4 flex flex-col items-center gap-3 text-center sm:flex-row sm:justify-center sm:text-left" style={step(1)}>
+        <Image
+          src={site.author.avatar}
+          alt={site.author.name}
+          width={56}
+          height={56}
+          className="h-14 w-14 rounded-full border border-rule bg-paper object-cover"
+          priority
+        />
+        <div className="leading-tight">
+          <div className="font-serif text-[1.1rem] text-ink">
+            {site.author.name}, Age {site.author.age}
+          </div>
+          <div className="mt-1 max-w-[34ch] font-serif text-[1rem] italic text-ink-soft sm:max-w-none">
+            <span className="mr-1.5 not-italic" aria-hidden="true">🫀</span>
+            {site.author.bio}
+          </div>
+        </div>
+      </div>
+      <SocialRow className="rise mt-2.5" size="sm" />
+      <details className="rise group mx-auto mt-2 max-w-[560px] text-center">
+        <summary className="label inline-flex cursor-pointer list-none items-center gap-1.5 hover:text-red [&::-webkit-details-marker]:hidden">
+          About me
+          <span className="transition-transform group-open:rotate-180" aria-hidden="true">▾</span>
+        </summary>
+        <div className="mt-3 space-y-3 rounded-xl bg-desk px-5 py-4 text-left font-serif text-[1.05rem] leading-relaxed text-ink-soft">
+          {site.author.about.map((p) => (
+            <p key={p.slice(0, 24)}>{p}</p>
+          ))}
+        </div>
+      </details>
+
+      {/* the ask, first */}
+      <CampaignHero className="rise mt-6" />
+      <div className="rise mt-5 flex flex-col items-center gap-2.5" style={step(1)}>
+        <a
+          href={site.donateUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="pill pill-red !h-14 !gap-3 !px-8 !text-[1.25rem] shadow-[0_12px_30px_-14px_rgba(196,30,58,0.6)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red"
+        >
+          <Mark className="h-5 w-5" />
+          Donate through {site.charity.team}
+        </a>
+        <Link href="/training" className="label underline decoration-rule underline-offset-4 hover:text-red">
+          Follow the training →
+        </Link>
+      </div>
+      <StravaEmbed className="rise mt-8" />
+
+      <div className="rise mx-auto mt-14 h-px w-full bg-red" style={step(2)} />
+
+      <div className="mt-14">
         {/* the letter */}
-        <div className="max-w-[620px] space-y-6 font-serif text-[1.2rem] leading-[1.6] text-ink sm:text-[1.28rem]">
+        <div className="mx-auto max-w-[640px] space-y-6 font-serif text-[1.2rem] leading-[1.6] text-ink sm:text-[1.28rem]">
           <p className="rise dropcap" style={step(2)}>
             For what little attention it gets, I was surprised to find out that
             coronary heart disease is the leading cause of death worldwide.
@@ -86,7 +140,7 @@ export function Letter() {
             Thank you for reading, and for caring about this with me.
           </p>
 
-          <div className="rise pt-4" style={step(7)}>
+          <div className="rise pt-4 text-center" style={step(7)}>
             <div className="font-serif text-[1.15rem] italic text-ink-soft">
               With gratitude, and in motion,
             </div>
@@ -99,10 +153,8 @@ export function Letter() {
             <div className="label mt-1 !normal-case !tracking-normal !text-ink-soft !text-[0.8rem]">
               {site.author.title} · {site.author.role}
             </div>
-            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
-              {site.author.socials
-                .filter((s) => !s.href.includes("REPLACE"))
-                .map((s) => (
+            <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1.5">
+              {liveSocials().map((s) => (
                   <a
                     key={s.label}
                     href={s.href}
@@ -116,7 +168,7 @@ export function Letter() {
             </div>
           </div>
 
-          <div className="rise flex flex-wrap items-center gap-3 pt-6" style={step(8)}>
+          <div className="rise flex flex-wrap items-center justify-center gap-3 pt-6" style={step(8)}>
             <a
               href={site.donateUrl}
               target="_blank"
@@ -131,44 +183,43 @@ export function Letter() {
             </Link>
           </div>
 
-          <p className="rise pt-2 font-serif text-[1.02rem] italic leading-relaxed text-ink-soft" style={step(9)}>
+          <p className="rise pt-2 text-center font-serif text-[1.02rem] italic leading-relaxed text-ink-soft" style={step(9)}>
             P.S. This page is open source. The training, the race-day splits,
             and the fundraising total will all be published here as they
             happen.
           </p>
         </div>
 
-        {/* rail */}
-        <aside className="rise lg:sticky lg:top-24 lg:self-start" style={step(4)} aria-label="Campaign figures">
-          <FundraisingMeter />
-
-          <dl className="mt-10 border-t border-rule">
-            {stats.map((s, i) => (
-              <div
-                key={s.value + s.sourceLabel}
-                className="rise grid grid-cols-[6.5rem_1fr] gap-4 border-b border-rule py-4"
-                style={step(5 + i)}
-              >
-                <dt className="num text-[1.35rem] leading-none text-red">{s.value}</dt>
-                <dd className="font-serif text-[0.95rem] leading-snug text-ink-soft">
-                  {s.label}{" "}
-                  <a
-                    href={s.source}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="label whitespace-nowrap underline decoration-rule underline-offset-4 hover:text-red"
-                  >
-                    {s.sourceLabel} ↗
-                  </a>
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </aside>
       </div>
 
+      {/* the figures behind the argument */}
+      <section className="rise mt-20" style={step(10)} aria-label="Campaign figures">
+        <div className="label text-center">Why it matters</div>
+        <dl className="mt-8 flex flex-wrap justify-center gap-y-10">
+          {stats.map((s) => (
+            <div
+              key={s.value + s.sourceLabel}
+              className="flex w-full flex-col items-center px-6 text-center sm:w-1/2 lg:w-1/3"
+            >
+              <dt className="num text-[2.6rem] leading-none text-red">{s.value}</dt>
+              <dd className="mt-3 max-w-[18rem] font-serif text-[1rem] leading-snug text-ink-soft">
+                {s.label}{" "}
+                <a
+                  href={s.source}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="label whitespace-nowrap underline decoration-rule underline-offset-4 hover:text-red"
+                >
+                  {s.sourceLabel} ↗
+                </a>
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
       {/* the route, drawn to scale */}
-      <section className="rise mt-16" style={step(10)} aria-label="Race distances, to scale">
+      <section className="rise mx-auto mt-20 max-w-[720px]" style={step(11)} aria-label="Race distances, to scale">
         <div className="flex items-end justify-between">
           <span className="label">The route, to scale</span>
           <span className="label !text-red">{site.race.totalMiles} miles</span>
@@ -187,7 +238,7 @@ export function Letter() {
         </div>
       </section>
 
-      <footer className="rise mt-12 flex flex-wrap items-center justify-between gap-3 border-t border-rule pt-5" style={step(11)}>
+      <footer className="rise mt-16 flex flex-col items-center gap-3 border-t border-rule pt-6 text-center sm:flex-row sm:justify-between" style={step(12)}>
         <span className="label">
           Postmarked {site.race.city}, {site.race.stateAbbr} · {site.race.postmarkDate}
         </span>
@@ -195,8 +246,9 @@ export function Letter() {
           href={site.repo}
           target="_blank"
           rel="noopener noreferrer"
-          className="label underline decoration-rule underline-offset-4 hover:text-red"
+          className="label inline-flex items-center gap-2 underline decoration-rule underline-offset-4 hover:text-red"
         >
+          <SocialIcon kind="github" className="h-4 w-4" />
           Source on GitHub ↗
         </a>
       </footer>
