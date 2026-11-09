@@ -9,7 +9,7 @@
 export const FAKE_SUPABASE_URL = "https://fake-project.supabase.test";
 
 /** Point db() at the fake. Call before the first db() use. */
-export function useFakeSupabaseEnv(): void {
+export function pointDbAtFakeSupabase(): void {
   process.env.NEXT_PUBLIC_SUPABASE_URL = FAKE_SUPABASE_URL;
   process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role";
 }

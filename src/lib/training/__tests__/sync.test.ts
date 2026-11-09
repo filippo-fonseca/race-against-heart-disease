@@ -4,7 +4,7 @@ import type { AthleteRow } from "../db";
 import { updateActivity } from "../strava";
 import { nextStamp, syncActivity, updateActivityPhotos } from "../sync";
 import type { ActivityPhoto } from "../types";
-import { fakeBackend, stravaDetail, stravaPhoto, useFakeSupabaseEnv, type FakeBackend, type Row } from "./fake-backend";
+import { fakeBackend, stravaDetail, stravaPhoto, pointDbAtFakeSupabase, type FakeBackend, type Row } from "./fake-backend";
 
 /**
  * Photos added through the MCP server live in the mirror row next to the
@@ -13,7 +13,7 @@ import { fakeBackend, stravaDetail, stravaPhoto, useFakeSupabaseEnv, type FakeBa
  * after update_activity) never wipes them, even when it races an upload.
  */
 
-useFakeSupabaseEnv();
+pointDbAtFakeSupabase();
 
 const ID = 16800000001;
 
