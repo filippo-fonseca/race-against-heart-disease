@@ -1,4 +1,4 @@
-import type { Activity, PlanSession } from "../types";
+import type { Activity } from "../types";
 
 let seq = 1;
 
@@ -22,20 +22,6 @@ export function activity(over: Partial<Activity> & Pick<Activity, "date" | "spor
     effort: null,
     photos: [],
     detailed: false,
-    ...over,
-  };
-}
-
-export function planned(over: Partial<PlanSession> & Pick<PlanSession, "date" | "sport">): PlanSession {
-  return {
-    id: `${over.date}-${over.sport}-${seq++}`,
-    title: `${over.sport} session`,
-    detail: null,
-    targetMin: 60,
-    targetKm: null,
-    athletes: [],
-    phase: "Base 1",
-    week: 1,
     ...over,
   };
 }

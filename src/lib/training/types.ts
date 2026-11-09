@@ -55,7 +55,7 @@ export interface Activity {
   description: string | null;
   /** ISO 8601, local start time with offset. */
   startLocal: string;
-  /** YYYY-MM-DD in the athlete's local time. Used for calendar + plan matching. */
+  /** YYYY-MM-DD in the athlete's local time. Keys the calendar, the feed and the window. */
   date: string;
   movingTimeSec: number;
   elapsedTimeSec: number;
@@ -87,17 +87,6 @@ export interface PlanSession {
   /** Which training block/phase this belongs to, e.g. "Base 1". */
   phase: string | null;
   week: number;
-}
-
-export type MatchStatus = "done" | "partial" | "missed" | "upcoming" | "rest";
-
-/** A planned session paired with what actually happened. */
-export interface DayMatch {
-  date: string;
-  athlete: AthleteSlug;
-  planned: PlanSession[];
-  actual: Activity[];
-  status: MatchStatus;
 }
 
 export interface WeeklyTotals {
