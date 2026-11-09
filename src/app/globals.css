@@ -209,3 +209,23 @@ body {
     animation: none !important;
   }
 }
+
+/* About me modal: fade and lift in, dimmed blurred backdrop. */
+.about-modal::backdrop {
+  background: rgba(20, 20, 20, 0.45);
+  backdrop-filter: blur(4px);
+}
+.about-modal[open] {
+  animation: about-in 220ms var(--ease);
+}
+@keyframes about-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .about-modal[open] {
+    animation: none;
+  }
+}

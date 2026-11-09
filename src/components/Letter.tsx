@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { site, stats } from "@/lib/site";
+import { AboutModal } from "./AboutModal";
 import { CampaignHero } from "./FundraisingMeter";
 import { Mark } from "./marks";
 import { SocialIcon, SocialRow, liveSocials } from "./Socials";
@@ -52,8 +53,11 @@ export function Letter() {
           priority
         />
         <div className="leading-tight">
-          <div className="font-serif text-[1.1rem] text-ink">
-            {site.author.name}, Age {site.author.age}
+          <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 sm:justify-start">
+            <span className="font-serif text-[1.15rem] font-bold text-ink">
+              {site.author.name}, Age {site.author.age}
+            </span>
+            <AboutModal />
           </div>
           <div className="mt-1 max-w-[34ch] font-serif text-[1rem] italic text-ink-soft sm:max-w-none">
             <span className="mr-1.5 not-italic" aria-hidden="true">🫀</span>
@@ -62,19 +66,6 @@ export function Letter() {
         </div>
       </div>
       <SocialRow className="rise mt-2.5" size="sm" />
-      <details className="rise group mx-auto mt-2 max-w-[560px] text-center">
-        <summary className="inline-flex h-10 cursor-pointer list-none items-center gap-2 rounded-full bg-paper px-5 text-[0.95rem] font-semibold text-ink shadow-[0_0_0_1px_var(--rule),0_1px_2px_rgba(20,20,20,0.06)] transition-[background-color,color,transform] hover:bg-desk active:scale-[0.97] group-open:bg-ink group-open:text-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red [&::-webkit-details-marker]:hidden">
-          About me
-          <svg viewBox="0 0 12 12" className="h-3 w-3 transition-transform group-open:rotate-180" aria-hidden="true">
-            <path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </summary>
-        <div className="mt-3 space-y-3 rounded-xl bg-desk px-5 py-4 text-left font-serif text-[1.05rem] leading-relaxed text-ink-soft">
-          {site.author.about.map((p) => (
-            <p key={p.slice(0, 24)}>{p}</p>
-          ))}
-        </div>
-      </details>
 
       {/* the ask, first */}
       <CampaignHero className="rise mt-6" />
