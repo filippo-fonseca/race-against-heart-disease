@@ -21,7 +21,8 @@ export const SERVER_INSTRUCTIONS = [
   "Call get_overview first in every conversation: it returns today's date in America/New_York, the current program week and phase, and what is planned today.",
   "Dates are always YYYY-MM-DD. athlete is filippo, emir or both. Rest days are dates with no plan rows.",
   "For multi-day plan edits, call replace_plan_range with dry_run true, show the diff, and only then call it again with dry_run false.",
-  "Use log_activities only for sessions that are not on Strava; Strava sessions arrive on their own (resync_strava forces it).",
+  "Strava is the single source of truth for activities: log_activities and update_activity write to the athlete's Strava and the site mirrors it. Recorded workouts arrive on their own (resync_strava forces it), so use log_activities only for sessions that were never recorded.",
+  "Activities cannot be deleted through Strava's API: deletion happens in the Strava app, and the site follows automatically. The plan and uploaded photos live only on this server.",
 ].join(" ");
 
 type ToolResult = { content: { type: "text"; text: string }[]; isError?: boolean };
@@ -97,7 +98,7 @@ export function registerTools(server: McpServer): void {
     {
       title: "Overview",
       description:
-        "Start here. Returns today's date in America/New_York (use it to resolve words like today, yesterday, Thursday), race date and days to go, both athletes and whether their Strava is linked, plan coverage (first and last planned date, session count), the current program week and phase, each athlete's planned sessions for today, and activity counts (Strava vs manual, last activity date). Takes no arguments.",
+        "Start here. Returns today's date in America/New_York (use it to resolve words like today, yesterday, Thursday), race date and days to go, both athletes and whether their Strava is linked, plan coverage (first and last planned date, session count), the current program week and phase, each athlete's planned sessions for today, and activity counts (total and last activity date). Takes no arguments.",
       inputSchema: z.object({}),
       annotations: READ_ONLY,
     },
@@ -195,7 +196,7 @@ export function registerTools(server: McpServer): void {
     {
       title: "List completed activities",
       description:
-        "What the athletes actually did between from and to (inclusive, at most 200 days), newest first: Strava activities plus manually logged ones. Each has id, source (strava or manual), athlete, sport, name, date, start_local, moving_time_min, elapsed_time_min, distance_km, elevation_m, avg_hr, max_hr, avg_watts, effort, description and photos (id, url, caption). Use it before logging to avoid duplicates and to find ids for update_activity, delete_activity and add_photo.",
+        "What the athletes actually did between from and to (inclusive, at most 200 days), newest first, as mirrored from Strava. Each has id (the Strava activity id), athlete, sport, sport_type, name, date, start_local, moving_time_min, elapsed_time_min, distance_km, elevation_m, avg_hr, max_hr, avg_watts, effort, description, photos (id, url, caption) and strava_url. Use it before logging to avoid duplicates and to find ids for update_activity, delete_activity and add_photo.",
       inputSchema: z.object({
         from: date("First day"),
         to: date("Last day, inclusive"),
@@ -209,32 +210,31 @@ export function registerTools(server: McpServer): void {
   server.registerTool(
     "log_activities",
     {
-      title: "Log sessions that are not on Strava",
+      title: "Log unrecorded sessions to Strava",
       description:
-        "Record completed sessions that will never arrive from Strava (a gym session without a watch, a pool swim not recorded, a class). Do not use it for anything already on Strava: check list_activities first, and if the athlete just finished a recorded workout, wait for Strava or call resync_strava. moving_time_min is required; pass only numbers the athlete actually said, never estimates. athlete both logs one copy per athlete. Dates cannot be in the future. Returns the new ids (negative numbers mark manual rows) and warnings about likely duplicates.",
+        "Create completed sessions that were never recorded (a gym session without a watch, a pool swim not recorded, a class) as manual activities on the athlete's Strava; the site shows them immediately. Do not use it for anything already on Strava: check list_activities first, and if the athlete just finished a recorded workout, wait for Strava or call resync_strava. duration_min is required; pass only numbers the athlete actually said, never estimates. Strava manual activities hold name, sport type, start, duration, distance and description only (no heart rate, power or elevation). athlete both creates one activity on each athlete's Strava. Dates cannot be in the future. A same-day, same-sport activity already on file blocks the call unless allow_duplicates is true, because Strava activities can only be deleted in the Strava app. Sessions are created one by one; if Strava's rate limit is close or a call fails, it stops and lists what was not logged. Returns the new Strava ids.",
       inputSchema: z.object({
         activities: z
           .array(
             z.object({
-              athlete: athleteChoice.describe("Who did it: filippo, emir, or both (one row each)."),
+              athlete: athleteChoice.describe("Who did it: filippo, emir, or both (one activity each)."),
               sport,
+              sport_type: z.string().max(40).nullish().describe("Optional exact Strava sport type, overriding the sport default (Swim, Ride, Run, WeightTraining, Workout), e.g. VirtualRide, TrailRun, Yoga, Rowing."),
               date: date("Day it happened, in America/New_York"),
-              start_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:MM, 24 hour.").nullish().describe("Local start time HH:MM (24 hour), America/New_York. Omit if unknown (stored as 12:00)."),
+              start_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:MM, 24 hour.").nullish().describe("Local start time HH:MM (24 hour). Omit if unknown (sent as 12:00)."),
               name: z.string().max(120).nullish().describe('Title, e.g. "Masters swim" or "Leg day". Defaults to the sport.'),
-              description: z.string().max(4000).nullish().describe("Notes in the athlete's words: the main set, how it felt."),
-              moving_time_min: z.number().positive().max(1440).describe("Moving time in minutes (required)."),
-              elapsed_time_min: z.number().positive().max(1440).nullish().describe("Total elapsed minutes including breaks. Defaults to moving time."),
+              description: z.string().max(4000).nullish().describe("Notes in the athlete's words: the main set, how it felt. Put heart rate or power here if the athlete mentions them."),
+              duration_min: z.number().positive().max(1440).describe("How long the session took, in minutes (required)."),
               distance_km: z.number().min(0).max(1000).nullish().describe("Distance in km (swims too: 2 means 2000 m)."),
-              elevation_m: z.number().min(0).max(10000).nullish().describe("Elevation gain in meters."),
-              avg_hr: z.number().min(0).max(250).nullish().describe("Average heart rate, bpm."),
-              max_hr: z.number().min(0).max(250).nullish().describe("Max heart rate, bpm."),
-              avg_watts: z.number().min(0).max(2000).nullish().describe("Average power, watts."),
+              trainer: z.boolean().nullish().describe("true for an indoor trainer or treadmill session."),
+              commute: z.boolean().nullish().describe("true if it was a commute."),
             }),
           )
           .min(1)
-          .max(50),
+          .max(25),
+        allow_duplicates: z.boolean().optional().describe("true logs even when the athlete already has a same-sport activity that day. Only after the athlete confirms it is a separate session."),
       }),
-      annotations: { ...WRITE, idempotentHint: false },
+      annotations: { ...WRITE, idempotentHint: false, openWorldHint: true },
     },
     run(async (args) => logActivities(args)),
   );
@@ -244,27 +244,22 @@ export function registerTools(server: McpServer): void {
     {
       title: "Edit an activity",
       description:
-        "Change fields of one activity (manual or Strava): name, description, sport, date, start_time, durations, distance, elevation, heart rate, power. Only the fields you pass change; null clears description, avg_hr, max_hr or avg_watts. Caution for Strava activities: when the activity is edited on Strava, the next webhook update overwrites the Strava-sourced fields here, so tell the athlete to edit it on Strava as well. Manual activities (negative ids) are never touched by Strava.",
+        "Edit one activity on Strava, then refresh it on the site. Strava's API only lets these change: name, description, sport (or an exact sport_type), trainer, commute and hide_from_home. Date, time, duration, distance, heart rate and power cannot be edited through the API; for those, tell the athlete to edit the activity in the Strava app (the site follows automatically). Only the fields you pass change; null or an empty string clears description.",
       inputSchema: z.object({
         id: z.union([z.string(), z.number()]).describe("Activity id from list_activities."),
         fields: z
           .object({
             name: z.string().max(120).nullish(),
             description: z.string().max(4000).nullish(),
-            sport: sport.nullish(),
-            date: date("New day").nullish(),
-            start_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:MM, 24 hour.").nullish().describe("New local start time HH:MM, America/New_York."),
-            moving_time_min: z.number().positive().max(1440).nullish(),
-            elapsed_time_min: z.number().positive().max(1440).nullish(),
-            distance_km: z.number().min(0).max(1000).nullish(),
-            elevation_m: z.number().min(0).max(10000).nullish(),
-            avg_hr: z.number().min(0).max(250).nullish(),
-            max_hr: z.number().min(0).max(250).nullish(),
-            avg_watts: z.number().min(0).max(2000).nullish(),
+            sport: sport.nullish().describe("New sport; sends the default Strava sport type for it. Ignored if it matches the current sport."),
+            sport_type: z.string().max(40).nullish().describe("Exact Strava sport type, e.g. VirtualRide, TrailRun. Takes priority over sport."),
+            trainer: z.boolean().nullish().describe("Indoor trainer or treadmill session."),
+            commute: z.boolean().nullish(),
+            hide_from_home: z.boolean().nullish().describe("true mutes it from Strava home feeds."),
           })
           .describe("Only the fields to change."),
       }),
-      annotations: WRITE,
+      annotations: { ...WRITE, openWorldHint: true },
     },
     run(async (args) => updateActivityTool(args)),
   );
@@ -272,13 +267,13 @@ export function registerTools(server: McpServer): void {
   server.registerTool(
     "delete_activity",
     {
-      title: "Delete an activity",
+      title: "How to delete an activity",
       description:
-        "Delete one activity and any photos uploaded to it. Confirm with the user first. Deleting a Strava activity here is temporary: the next Strava sync brings it back unless it is also deleted on Strava. Use it mainly for manual entries (negative ids) logged by mistake or duplicated.",
+        "Does not delete anything. Strava's API cannot delete activities, so this returns the activity, its Strava link and step-by-step instructions to delete it in the Strava app or website. Relay those to the athlete. Once they delete it on Strava, the site removes it (and any photos uploaded to it) automatically.",
       inputSchema: z.object({
         id: z.union([z.string(), z.number()]).describe("Activity id from list_activities."),
       }),
-      annotations: DESTRUCTIVE,
+      annotations: READ_ONLY,
     },
     run(async (args) => deleteActivityTool(args)),
   );
@@ -308,7 +303,7 @@ export function registerTools(server: McpServer): void {
     {
       title: "Attach a photo to an activity",
       description:
-        "Store a session photo and show it on that activity in the training log. Give the image as image_url (a URL this server can download, such as a Telegram file URL from getFile) or as image_base64 (raw base64 or a data: URL). JPEG, PNG, WebP or HEIC, at most 15 MB; prefer JPEG. Target the activity with activity_id, or with athlete plus date to use that athlete's only activity that day. If the day has several activities the call fails and lists them: ask which one. If it has none, the session is not logged yet: create it with log_activities (or resync_strava if it is on Strava) and retry with the new id.",
+        "Store a session photo and show it on that activity in the training log. Give the image as image_url (a URL this server can download, such as a Telegram file URL from getFile) or as image_base64 (raw base64 or a data: URL). JPEG, PNG, WebP or HEIC, at most 15 MB; prefer JPEG. Target the activity with activity_id, or with athlete plus date to use that athlete's only activity that day. If the day has several activities the call fails and lists them: ask which one. If it has none, the session is not on Strava yet: create it with log_activities (or resync_strava if it was recorded) and retry with the new id. Photos are stored on this server, not uploaded to Strava (its API cannot accept photos).",
       inputSchema: z.object({
         athlete: z.enum(["filippo", "emir"]).describe("Whose activity: filippo or emir."),
         activity_id: z.union([z.string(), z.number()]).nullish().describe("Activity id from list_activities. Takes priority over date."),

@@ -4,7 +4,6 @@ import { db } from "../training/db";
 import { appliesTo, daysToRace, PLAN_START, planWindow, RACE_DATE, weekOf } from "../training/plan";
 import { listAthletes } from "../training/queries";
 import type { AthleteSlug } from "../training/types";
-import { isManualId } from "./activity-logic";
 import { compactPlanSession } from "./plan-logic";
 import { ATHLETE_SLUGS, ATHLETE_TIME_ZONE, todayForAthletes } from "./validate";
 
@@ -13,14 +12,13 @@ import { ATHLETE_SLUGS, ATHLETE_TIME_ZONE, todayForAthletes } from "./validate";
  */
 
 interface ActivityCountRow {
-  id: number;
   athlete_slug: AthleteSlug;
   date: string;
 }
 
 /** Async so a missing Supabase env rejects inside Promise.all instead of throwing while the array is built. */
 async function activityCountRows(): Promise<ActivityCountRow[]> {
-  const { data, error } = await db().from("activities").select("id, athlete_slug, date");
+  const { data, error } = await db().from("activities").select("athlete_slug, date");
   if (error) throw error;
   return (data ?? []) as ActivityCountRow[];
 }
@@ -40,9 +38,8 @@ export async function getOverview() {
   const activities = Object.fromEntries(
     ATHLETE_SLUGS.map((slug) => {
       const mine = rows.filter((r) => r.athlete_slug === slug);
-      const manual = mine.filter((r) => isManualId(r.id)).length;
       const last = mine.reduce<string | null>((acc, r) => (acc === null || r.date > acc ? r.date : acc), null);
-      return [slug, { total: mine.length, strava: mine.length - manual, manual, last_date: last }];
+      return [slug, { total: mine.length, last_date: last }];
     }),
   );
 
