@@ -50,7 +50,7 @@ export function ChartRail({
         </span>
       </div>
       {/* `relative` so the charts' sr-only summaries (absolute) are clipped by this strip rather than escaping to the sheet */}
-      <div className="rail-strip relative -mx-4 mt-4 flex snap-x snap-mandatory gap-8 overflow-x-auto px-4 pb-2 lg:mx-0 lg:mt-3 lg:flex-col lg:gap-5 lg:overflow-visible lg:px-0 lg:pb-0">
+      <div className="rail-strip relative -mx-4 mt-4 flex snap-x snap-mandatory scroll-px-4 gap-8 overflow-x-auto px-4 pb-2 lg:mx-0 lg:mt-3 lg:flex-col lg:gap-5 lg:overflow-visible lg:px-0 lg:pb-0">
         <div className={chart}>
           <Heatmap
             start={cal.start}
