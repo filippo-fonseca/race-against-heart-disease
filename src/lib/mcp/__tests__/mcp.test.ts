@@ -1,14 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { deriveId } from "../../admin/plan-import";
-import { weekOf } from "../../training/plan";
 import { keepUploadedPhotos } from "../../training/photos";
-import type { Activity, PlanSession } from "../../training/types";
-import { buildStravaCreate, buildStravaUpdate, compactActivity, createSequentially, type PlannedCreate } from "../activity-logic";
+import type { Activity } from "../../training/types";
+import { bucketOf, buildStravaCreate, buildStravaUpdate, compactActivity, createSequentially, sportTotals, type PlannedCreate } from "../activity-logic";
 import { checkMcpAuth, extractBearer } from "../auth";
 import { checkImageUrl, decodeBase64Image, imageDimensions, pathFromPublicUrl, sniffImageType, validateImage } from "../photo-logic";
-import { deletePlanScope, normalizeBatch, normalizePlanInput, planUpsertDiff, replaceRangeDiff, uniqueId, type PlanSessionInput } from "../plan-logic";
-import { isRealDate, localStart, McpToolError, validateRange } from "../validate";
+import { isRealDate, localStart, McpToolError, trainingWindow, validateRange } from "../validate";
 
 /* ------------------------------------------------------------------ */
 /* Auth                                                                 */
@@ -58,174 +55,36 @@ test("localStart attaches the New York offset for the day (EST and EDT)", () => 
   assert.throws(() => localStart("2026-11-09", "25:00"), /HH:MM/);
 });
 
-/* ------------------------------------------------------------------ */
-/* Plan: normalisation reuses the admin import's derivation             */
-/* ------------------------------------------------------------------ */
-
-const input = (over: Partial<PlanSessionInput>): PlanSessionInput => ({ date: "2026-11-10", sport: "run", title: "Easy run", ...over });
-
-test("normalizePlanInput derives id, week and phase exactly like the CSV import", () => {
-  const { session, explicitId } = normalizePlanInput(input({ detail: " Z2 ", target_min: 40 }), 0);
-  assert.equal(explicitId, false);
-  assert.equal(session.id, deriveId("2026-11-10", "run", "Easy run"));
-  assert.equal(session.id, "2026-11-10-run-easy-run");
-  assert.equal(session.week, weekOf("2026-11-10").week);
-  assert.equal(session.week, 2);
-  assert.equal(session.phase, "Base 1");
-  assert.equal(session.detail, "Z2");
-  assert.deepEqual(session.athletes, []);
-  assert.deepEqual(normalizePlanInput(input({ athlete: "emir" }), 0).session.athletes, ["emir"]);
-  assert.equal(normalizePlanInput(input({ id: "custom" }), 0).explicitId, true);
+test("trainingWindow numbers the days from Nov 2 to race day", () => {
+  const day1 = trainingWindow("2026-11-02");
+  assert.equal(day1.day_number, 1);
+  assert.equal(day1.total_days, 154);
+  assert.equal(day1.days_to_race, 153);
+  assert.equal(trainingWindow("2026-11-09").day_number, 8);
+  const race = trainingWindow("2027-04-04");
+  assert.equal(race.day_number, 154);
+  assert.equal(race.days_to_race, 0);
+  assert.match(race.status, /Race day/);
+  assert.equal(trainingWindow("2026-11-01").day_number, null);
+  assert.match(trainingWindow("2026-11-01").status, /Before training/);
+  assert.equal(trainingWindow("2027-04-05").day_number, null);
+  assert.equal(trainingWindow("2027-04-05").days_to_race, -1);
 });
 
-test("normalizePlanInput rejects a wrong week, dates outside the program and bad numbers", () => {
-  assert.throws(() => normalizePlanInput(input({ week: 3 }), 0), /falls in week 2/);
-  assert.throws(() => normalizePlanInput(input({ date: "2026-10-30" }), 0), /outside the program/);
-  assert.throws(() => normalizePlanInput(input({ date: "2027-04-05" }), 0), /outside the program/);
-  assert.throws(() => normalizePlanInput(input({ target_min: 12.5 }), 0), /whole number/);
-  assert.throws(() => normalizePlanInput(input({ athlete: "emir" }), 0, { forceAthlete: "filippo" }), /scoped to filippo/);
-});
-
-test("normalizeBatch keeps derived ids unique and refuses duplicate explicit ids", () => {
-  // Same title for different athletes (a 90 min long run for one, 60 for the other) is normal.
-  const ids = normalizeBatch([input({}), input({ athlete: "filippo" }), input({ athlete: "emir" })]).map((n) => n.session.id);
-  assert.deepEqual(ids, ["2026-11-10-run-easy-run", "2026-11-10-run-easy-run-filippo", "2026-11-10-run-easy-run-emir"]);
-  assert.throws(() => normalizeBatch([input({}), input({ title: "Easy  Run!" })]), /same session twice/);
-  assert.throws(() => normalizeBatch([input({ id: "x" }), input({ id: "x", title: "Other" })]), /same id/);
-});
-
-test("uniqueId suffixes with the athlete, then counts", () => {
-  const taken = new Set(["a", "a-filippo"]);
-  assert.equal(uniqueId("b", taken), "b");
-  assert.equal(uniqueId("a", taken, "filippo"), "a-filippo-2");
-  assert.equal(uniqueId("a", new Set(["a"]), "emir"), "a-emir");
-});
-
-/* ------------------------------------------------------------------ */
-/* Plan: upsert and replace-range diffing                               */
-/* ------------------------------------------------------------------ */
-
-function row(over: Partial<PlanSession>): PlanSession {
-  const date = over.date ?? "2026-11-10";
-  const title = over.title ?? "Easy run";
-  const sport = over.sport ?? "run";
-  return {
-    id: deriveId(date, sport, title),
-    date,
-    sport,
-    title,
-    detail: null,
-    targetMin: 40,
-    targetKm: null,
-    athletes: [],
-    phase: "Base 1",
-    week: weekOf(date).week,
-    ...over,
-  };
-}
-
-test("planUpsertDiff updates by natural key, creates otherwise, and never reuses another athlete's id", () => {
-  const shared = row({});
-  const incoming = normalizeBatch([
-    input({ target_min: 50 }), // same date, sport, title, athletes: update
-    input({ athlete: "filippo" }), // same title for filippo only: create with a suffixed id
-    input({ sport: "swim", title: "Technique" }), // new
+test("sportTotals buckets everything that is not swim, bike or run as strength (LIFT)", () => {
+  const totals = sportTotals([
+    { sport: "bike", moving_time_sec: 3600, distance_m: 30000 },
+    { sport: "bike", moving_time_sec: 1800, distance_m: "0" },
+    { sport: "run", moving_time_sec: 2700, distance_m: 8000 },
+    { sport: "strength", moving_time_sec: 1800, distance_m: null },
+    { sport: "other", moving_time_sec: 1800, distance_m: 0 },
   ]);
-  const diff = planUpsertDiff(incoming, [shared]);
-  assert.equal(diff.updates.length, 1);
-  assert.equal(diff.updates[0].after.id, shared.id);
-  assert.deepEqual(diff.updates[0].fields, ["targetMin"]);
-  assert.deepEqual(
-    diff.creates.map((s) => s.id),
-    ["2026-11-10-run-easy-run-filippo", "2026-11-10-swim-technique"],
-  );
-});
-
-test("planUpsertDiff moves a row when an explicit id comes with a new date", () => {
-  const swim = row({ date: "2026-11-12", sport: "swim", title: "Main set" });
-  const diff = planUpsertDiff(normalizeBatch([input({ id: swim.id, date: "2026-11-13", sport: "swim", title: "Main set", target_min: 40 })]), [swim]);
-  assert.equal(diff.creates.length, 0);
-  assert.deepEqual(diff.updates[0].fields, ["date"]);
-  assert.equal(diff.updates[0].after.week, 2);
-  const same = planUpsertDiff(normalizeBatch([input({ id: swim.id, date: "2026-11-12", sport: "swim", title: "Main set", target_min: 40 })]), [swim]);
-  assert.equal(same.unchanged.length, 1);
-});
-
-test("replaceRangeDiff for both athletes keeps matches, updates in place and deletes the rest of the range", () => {
-  const existing = [
-    row({ date: "2026-11-10", sport: "run", title: "Easy run" }),
-    row({ date: "2026-11-10", sport: "swim", title: "Technique" }),
-    row({ date: "2026-11-11", sport: "strength", title: "Knee rehab A" }),
-    row({ date: "2026-11-20", sport: "run", title: "Outside the range" }),
-  ];
-  const incoming = normalizeBatch([
-    input({ date: "2026-11-10", sport: "run", title: "Easy run", target_min: 40 }), // unchanged
-    input({ date: "2026-11-10", sport: "swim", title: "Drills", target_min: 30 }), // lone swim that day: updated in place
-    input({ date: "2026-11-11", sport: "bike", title: "Spin" }), // new
-  ]);
-  const plan = replaceRangeDiff(incoming, existing, { from: "2026-11-10", to: "2026-11-12", athlete: "both" });
-  assert.equal(plan.unchanged, 1);
-  assert.equal(plan.updates.length, 1);
-  assert.equal(plan.updates[0].after.id, "2026-11-10-swim-technique");
-  assert.deepEqual(plan.updates[0].fields.sort(), ["targetMin", "title"].sort());
-  assert.deepEqual(plan.creates.map((s) => s.id), ["2026-11-11-bike-spin"]);
-  assert.deepEqual(plan.deletes.map((s) => s.id), ["2026-11-11-strength-knee-rehab-a"]);
-  assert.equal(plan.narrows.length, 0);
-});
-
-test("replaceRangeDiff with no sessions clears the range", () => {
-  const existing = [row({}), row({ date: "2026-11-12", sport: "swim", title: "Main set" })];
-  const plan = replaceRangeDiff([], existing, { from: "2026-11-10", to: "2026-11-10", athlete: "both" });
-  assert.deepEqual(plan.deletes.map((s) => s.id), [existing[0].id]);
-});
-
-test("replaceRangeDiff for one athlete narrows shared sessions instead of deleting them", () => {
-  const sharedRun = row({ date: "2026-11-10", sport: "run", title: "Easy run" });
-  const sharedSwim = row({ date: "2026-11-10", sport: "swim", title: "Technique" });
-  const emirOnly = row({ date: "2026-11-10", sport: "bike", title: "Spin", id: "emir-spin", athletes: ["emir"] });
-  const filippoOnly = row({ date: "2026-11-11", sport: "strength", title: "Knee rehab A", athletes: ["filippo"] });
-  const incoming = normalizeBatch(
-    [
-      input({ date: "2026-11-10", sport: "run", title: "Easy run", target_min: 30 }), // changed for filippo only
-      input({ date: "2026-11-11", sport: "swim", title: "Recovery swim" }), // new
-    ],
-    { forceAthlete: "filippo" },
-  );
-  const plan = replaceRangeDiff(incoming, [sharedRun, sharedSwim, emirOnly, filippoOnly], { from: "2026-11-10", to: "2026-11-11", athlete: "filippo" });
-
-  // The shared run stays for emir, filippo gets his own shortened copy.
-  // The shared swim filippo dropped stays for emir. Emir's ride is untouched.
-  assert.deepEqual(
-    plan.narrows.map((n) => [n.before.id, n.after.athletes]).sort(),
-    [
-      [sharedRun.id, ["emir"]],
-      [sharedSwim.id, ["emir"]],
-    ].sort(),
-  );
-  assert.deepEqual(plan.creates.map((s) => [s.id, s.athletes, s.targetMin]).sort(), [
-    ["2026-11-10-run-easy-run-filippo", ["filippo"], 30],
-    ["2026-11-11-swim-recovery-swim", ["filippo"], null],
-  ]);
-  assert.deepEqual(plan.deletes.map((s) => s.id), [filippoOnly.id]);
-  assert.equal(plan.updates.length, 0);
-});
-
-test("replaceRangeDiff refuses sessions outside the range", () => {
-  assert.throws(
-    () => replaceRangeDiff(normalizeBatch([input({ date: "2026-11-12" })]), [], { from: "2026-11-10", to: "2026-11-11", athlete: "both" }),
-    /outside the range/,
-  );
-});
-
-test("deletePlanScope deletes for both, and for one athlete narrows shared rows and skips the other's", () => {
-  const shared = row({});
-  const emirOnly = row({ id: "e", athletes: ["emir"] });
-  const filippoOnly = row({ id: "f", athletes: ["filippo"] });
-  assert.equal(deletePlanScope([shared, emirOnly, filippoOnly], "both").deletes.length, 3);
-  const scoped = deletePlanScope([shared, emirOnly, filippoOnly], "filippo");
-  assert.deepEqual(scoped.deletes.map((s) => s.id), ["f"]);
-  assert.deepEqual(scoped.narrows.map((n) => n.after.athletes), [["emir"]]);
-  assert.deepEqual(scoped.skipped.map((s) => s.id), ["e"]);
+  assert.deepEqual(totals.bike, { label: "BIKE", sessions: 2, hours: 1.5, km: 30 });
+  assert.deepEqual(totals.run, { label: "RUN", sessions: 1, hours: 0.8, km: 8 });
+  assert.deepEqual(totals.strength, { label: "LIFT", sessions: 2, hours: 1, km: 0 });
+  assert.deepEqual(totals.swim, { label: "SWIM", sessions: 0, hours: 0, km: 0 });
+  assert.equal(bucketOf("VirtualRide"), "strength", "buckets come from the stored sport, not the Strava type");
+  assert.equal(bucketOf("bike"), "bike");
 });
 
 /* ------------------------------------------------------------------ */

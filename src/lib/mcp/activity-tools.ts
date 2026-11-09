@@ -2,7 +2,6 @@ import { loadAthleteRow, loadAthleteRows, type AthleteRow } from "../training/db
 import { getActivity, listActivities } from "../training/queries";
 import { createActivity, getValidToken, nearRateLimit, StravaError, StravaWriteAccessError, updateActivity } from "../training/strava";
 import { syncActivity, syncAthlete, TRAINING_START, type SyncStats } from "../training/sync";
-import { PLAN_START } from "../training/plan";
 import type { Activity, AthleteSlug } from "../training/types";
 import {
   buildStravaCreate,
@@ -15,7 +14,7 @@ import {
   type PlannedCreate,
 } from "./activity-logic";
 import { invalidateTraining } from "./cache";
-import { assertDate, athletesFor, McpToolError, todayForAthletes, validateRange, type AthleteChoice } from "./validate";
+import { assertDate, athletesFor, McpToolError, todayForAthletes, TRAINING_START_DATE, validateRange, type AthleteChoice } from "./validate";
 
 /**
  * Activity tools. Strava is the single source of truth: these tools write
@@ -107,7 +106,7 @@ export async function logActivities(args: { activities: LogActivityInput[]; allo
     for (const c of nearby.filter((n) => n.athlete === p.athlete && n.date === date && n.sport === sport)) {
       clashes.push(`activities[${p.index}]: ${p.athlete} already has a ${c.sport} on ${date} ("${c.name}", id ${c.id}).`);
     }
-    if (date < PLAN_START) warnings.push(`activities[${p.index}]: ${date} is before the program start (${PLAN_START}), so /training will not show it.`);
+    if (date < TRAINING_START_DATE) warnings.push(`activities[${p.index}]: ${date} is before day 1 of training (${TRAINING_START_DATE}), so the site will not show it.`);
   }
   if (clashes.length > 0 && !args.allow_duplicates) {
     throw new McpToolError(

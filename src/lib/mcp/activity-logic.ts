@@ -13,6 +13,49 @@ import { assertDate, isClock, McpToolError, type AthleteChoice } from "./validat
  * Nothing in this module produces a mirror row on its own.
  */
 
+/**
+ * The four buckets the site reports: swim, bike, run, and strength (shown
+ * as LIFT), which covers HIIT, weights and anything that is not one of the
+ * other three. Defined here rather than taken from types.ts so the tools do
+ * not depend on how many values `Sport` has.
+ */
+export const SPORT_BUCKETS = ["swim", "bike", "run", "strength"] as const;
+export type SportBucket = (typeof SPORT_BUCKETS)[number];
+
+export const BUCKET_LABEL: Record<SportBucket, string> = { swim: "SWIM", bike: "BIKE", run: "RUN", strength: "LIFT" };
+
+/** Bucket of a stored activity's `sport` (anything but swim, bike or run is strength). */
+export function bucketOf(sport: string | null | undefined): SportBucket {
+  return sport === "swim" || sport === "bike" || sport === "run" ? sport : "strength";
+}
+
+export interface TotalsRow {
+  sport: string | null;
+  moving_time_sec: number | null;
+  distance_m: number | string | null;
+}
+
+export interface BucketTotals {
+  label: string;
+  sessions: number;
+  hours: number;
+  km: number;
+}
+
+/** Sessions, hours and km per bucket (every bucket present, zeros included). */
+export function sportTotals(rows: TotalsRow[]): Record<SportBucket, BucketTotals> {
+  const acc = Object.fromEntries(SPORT_BUCKETS.map((b) => [b, { sec: 0, m: 0, n: 0 }])) as Record<SportBucket, { sec: number; m: number; n: number }>;
+  for (const r of rows) {
+    const t = acc[bucketOf(r.sport)];
+    t.n += 1;
+    t.sec += r.moving_time_sec ?? 0;
+    t.m += Number(r.distance_m ?? 0) || 0;
+  }
+  return Object.fromEntries(
+    SPORT_BUCKETS.map((b) => [b, { label: BUCKET_LABEL[b], sessions: acc[b].n, hours: round(acc[b].sec / 3600, 1), km: round(acc[b].m / 1000, 1) }]),
+  ) as Record<SportBucket, BucketTotals>;
+}
+
 /** The Strava sport_type sent for each sport when the caller gives none. */
 export const SPORT_TYPE_FOR: Record<Sport, string> = {
   swim: "Swim",
@@ -69,7 +112,7 @@ export function buildStravaCreate(input: LogActivityInput, opts: { today: ISODat
   const where = `activities[${opts.index}]`;
   const date = assertDate(input.date, `${where}.date`);
   if (date > opts.today) {
-    throw new McpToolError(`${where}.date ${date} is in the future (today is ${opts.today}). Log sessions after they happen; plan future ones with the plan tools.`);
+    throw new McpToolError(`${where}.date ${date} is in the future (today is ${opts.today}). Log sessions only after they happen.`);
   }
   const minutes = input.duration_min;
   if (typeof minutes !== "number" || !Number.isFinite(minutes) || minutes <= 0 || minutes > 1440) {
