@@ -7,6 +7,7 @@ import type {
   AthleteSlug,
   Sport,
 } from "./types";
+import { ATHLETE, bucketOf, toSport } from "./types";
 
 /**
  * Server-only Supabase access for the training log. Uses the service-role key,
@@ -53,10 +54,15 @@ export interface ActivityRow {
   detailed: boolean;
   raw: unknown;
   updated_at: string;
+  /**
+   * `raw->utc_offset` (seconds), selected by queries.ts. Postgres stores
+   * start_local as UTC, so this is what turns it back into wall-clock time.
+   */
+  utc_offset?: number | string | null;
 }
 
 /** Columns we write; `updated_at` is set by the caller. */
-export type ActivityInsert = Omit<ActivityRow, "updated_at"> & {
+export type ActivityInsert = Omit<ActivityRow, "updated_at" | "utc_offset"> & {
   updated_at?: string;
 };
 
@@ -93,6 +99,26 @@ function num(value: number | string | null | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** "+HH:MM" / "-HH:MM" for an offset in seconds. */
+function offsetSuffix(sec: number): string {
+  const sign = sec < 0 ? "-" : "+";
+  const abs = Math.abs(Math.round(sec / 60));
+  return `${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}:${String(abs % 60).padStart(2, "0")}`;
+}
+
+/**
+ * `start_local` comes back from timestamptz normalised to UTC
+ * ("2026-11-02T22:17:37+00:00"). With Strava's utc_offset we can restore the
+ * athlete's wall clock ("2026-11-02T17:17:37-05:00"), which is what the feed
+ * prints. Without one the value passes through unchanged.
+ */
+export function toLocalStart(start: string, offsetSec: number | null): string {
+  if (offsetSec === null) return start;
+  const t = Date.parse(start);
+  if (Number.isNaN(t)) return start;
+  return `${new Date(t + offsetSec * 1000).toISOString().slice(0, 19)}${offsetSuffix(offsetSec)}`;
+}
+
 export function toAthlete(row: AthleteRow): Athlete {
   return {
     slug: row.slug,
@@ -106,11 +132,13 @@ export function toActivity(row: ActivityRow): Activity {
   return {
     id: String(row.id),
     athlete: row.athlete_slug,
-    sport: row.sport,
+    // Recomputed from the Strava type so rows stored under older bucketing
+    // (e.g. HIIT saved as "other") read correctly without a resync.
+    sport: row.strava_sport_type ? toSport(row.strava_sport_type) : bucketOf(row.sport),
     stravaSportType: row.strava_sport_type,
     name: row.name,
     description: row.description,
-    startLocal: row.start_local,
+    startLocal: toLocalStart(row.start_local, num(row.utc_offset)),
     date: row.date,
     movingTimeSec: row.moving_time_sec ?? 0,
     elapsedTimeSec: row.elapsed_time_sec ?? 0,
@@ -150,12 +178,12 @@ export function toActivityRow(activity: Activity, raw: unknown = null): Activity
   };
 }
 
-/** Load every athlete row, tokens included. Server use only. */
+/** Filippo's athlete row as a list (the site follows only him), tokens included. Server use only. */
 export async function loadAthleteRows(): Promise<AthleteRow[]> {
   const { data, error } = await db()
     .from("athletes")
     .select("*")
-    .order("slug");
+    .eq("slug", ATHLETE);
   if (error) throw error;
   return (data ?? []) as AthleteRow[];
 }

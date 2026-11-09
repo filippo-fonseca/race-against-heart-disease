@@ -9,7 +9,7 @@ const TOP = 13;
 const DOW = ["M", "", "W", "", "F", "", "S"];
 
 /**
- * Calendar heatmap: one column per program week, Monday on top.
+ * Calendar heatmap: one column per week of the window (Nov 2 to race day), Monday on top.
  * Red intensity scales with minutes trained that day.
  */
 export function Heatmap({
@@ -50,14 +50,14 @@ export function Heatmap({
   }
 
   const trained = cells.filter((c) => c.min > 0).length;
-  const pastDays = cells.filter((c) => c.date < today).length;
+  const pastDays = cells.filter((c) => c.date <= today).length;
 
   return (
     <ChartFrame
       title="Calendar"
       meta={`${trained} / ${pastDays} days`}
       label="Calendar heatmap of training days"
-      summary={`Training days since the program started: ${trained} of ${pastDays} days so far had at least one session. Darker red means more minutes.`}
+      summary={`Training days since day one: ${trained} of ${pastDays} days so far had at least one session. Darker red means more minutes.`}
     >
       <svg viewBox={`0 0 ${width} ${height}`} className="block w-full" shapeRendering="crispEdges">
         {months.map((m) => (

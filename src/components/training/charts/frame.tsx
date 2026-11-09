@@ -1,17 +1,20 @@
 import type { ReactNode } from "react";
-import type { Sport } from "@/lib/training/types";
+import { SPORTS, type Sport, type SportBucket } from "@/lib/training/types";
 
-/** Sport encoding within the palette. Red is reserved for the bike (the longest leg). */
+/**
+ * Sport encoding within the palette. Red is reserved for the bike (the longest
+ * leg). LIFT is a warm ochre so it reads on white as a line, a bar and a pill.
+ */
 export const sportFill: Record<Sport, string> = {
   swim: "#b4ada5",
   bike: "var(--red)",
   run: "var(--ink)",
-  strength: "#dcd7d0",
-  other: "#ebe7e1",
+  strength: "#c08a3e",
+  other: "#c08a3e",
 };
 
 /** Sports that get their own layer in the charts, in stack order (bottom first). */
-export const chartSports: Sport[] = ["swim", "bike", "run", "strength"];
+export const chartSports: readonly SportBucket[] = SPORTS;
 
 export function ChartFrame({
   title,
@@ -42,23 +45,5 @@ export function ChartFrame({
         {children}
       </div>
     </figure>
-  );
-}
-
-/** Tiny legend row, mono labels with a square swatch each. */
-export function Legend({ items }: { items: { sport: Sport; text: string }[] }) {
-  return (
-    <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-      {items.map((it) => (
-        <li key={it.sport} className="label flex items-center gap-1.5 !tracking-[0.06em]">
-          <span
-            className="inline-block h-[7px] w-[7px]"
-            style={{ background: sportFill[it.sport] }}
-            aria-hidden="true"
-          />
-          {it.text}
-        </li>
-      ))}
-    </ul>
   );
 }

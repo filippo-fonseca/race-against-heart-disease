@@ -11,7 +11,7 @@ const BOTTOM = 14;
 
 /**
  * Minutes spent by average heart rate, in 10 bpm bins. The grey bars are the
- * whole program; the red overlay is the week being read (scroll spy).
+ * whole window; the red overlay is the week being read (scroll spy).
  */
 export function HrHistogram({
   activities,

@@ -1,4 +1,4 @@
-import type { Sport } from "@/lib/training/types";
+import type { Sport, SportBucket } from "@/lib/training/types";
 
 /** "8h 40m", "40m", or "0m". */
 export function fmtHM(sec: number): string {
@@ -21,6 +21,18 @@ export function fmtKm(m: number, sport?: Sport): string {
   if (sport === "swim" && km < 10) return km.toFixed(2);
   if (km >= 100) return km.toFixed(0);
   return km.toFixed(1);
+}
+
+/** "4:52", minutes and seconds. */
+function fmtMS(sec: number): string {
+  const s = Math.round(sec);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+/** Pace: per 100 m for swims ("1:52"), per km otherwise ("4:48"). Null without distance. */
+export function fmtPace(timeSec: number, distanceM: number, sport: Sport): string | null {
+  if (distanceM <= 0 || timeSec <= 0) return null;
+  return fmtMS(sport === "swim" ? (timeSec / distanceM) * 100 : (timeSec / distanceM) * 1000);
 }
 
 export function fmtMinutes(sec: number): string {
@@ -77,22 +89,15 @@ export const sportLabel: Record<Sport, string> = {
   swim: "Swim",
   bike: "Bike",
   run: "Run",
-  strength: "Strength",
-  other: "Other",
+  strength: "Lift",
+  other: "Lift",
 };
 
-/** Past-tense verb for the auto note. */
-export const sportVerb: Record<Sport, string> = {
-  swim: "Swam",
-  bike: "Rode",
-  run: "Ran",
-  strength: "Lifted",
-  other: "Moved",
-};
-
-/** The three race legs in metres, for cumulative "times the race distance". */
-export const raceLegM: Partial<Record<Sport, number>> = {
-  swim: 1_900,
-  bike: 90_000,
-  run: 21_100,
-};
+/**
+ * One sport's total the way the site reports it: swims and runs by distance,
+ * rides and lifts by time (most rides are indoor, with no distance).
+ */
+export function fmtSportTotal(sport: SportBucket, t: { timeSec: number; distanceM: number }): string {
+  if (sport === "swim" || sport === "run") return `${fmtKm(t.distanceM, sport)} km`;
+  return fmtHM(t.timeSec);
+}

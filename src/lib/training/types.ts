@@ -3,9 +3,33 @@
  * and the UI code against these types. Change here first, then everywhere.
  */
 
-export type Sport = "swim" | "bike" | "run" | "strength" | "other";
+/**
+ * The four buckets the site shows, as pills: SWIM, BIKE, RUN and LIFT.
+ * LIFT is `strength` internally and covers HIIT, weights, and anything that
+ * is not a swim, a ride or a run.
+ */
+export type SportBucket = "swim" | "bike" | "run" | "strength";
 
-export type AthleteSlug = "filippo" | "emir";
+/**
+ * Sport on an activity. "other" is a legacy value: `toSport` never returns
+ * it and rows are re-bucketed on read (db.ts), but the type keeps it so older
+ * callers still compile. Use `bucketOf` before keying anything by sport.
+ */
+export type Sport = SportBucket | "other";
+
+/** The buckets in display and stack order. */
+export const SPORTS: readonly SportBucket[] = ["swim", "bike", "run", "strength"];
+
+/** Collapse the legacy "other" into LIFT. */
+export function bucketOf(sport: Sport): SportBucket {
+  return sport === "other" ? "strength" : sport;
+}
+
+/** The site follows one athlete. Kept as a type so the DB column stays explicit. */
+export type AthleteSlug = "filippo";
+
+/** The only athlete the site loads. */
+export const ATHLETE: AthleteSlug = "filippo";
 
 export interface Athlete {
   slug: AthleteSlug;
@@ -35,7 +59,7 @@ export interface Activity {
   description: string | null;
   /** ISO 8601, local start time with offset. */
   startLocal: string;
-  /** YYYY-MM-DD in the athlete's local time. Used for calendar + plan matching. */
+  /** YYYY-MM-DD in the athlete's local time. Keys the calendar, the feed and the window. */
   date: string;
   movingTimeSec: number;
   elapsedTimeSec: number;
@@ -51,68 +75,33 @@ export interface Activity {
   detailed: boolean;
 }
 
-/** One prescribed session in the training program. */
-export interface PlanSession {
-  id: string;
-  /** YYYY-MM-DD. Program starts 2026-11-02. */
-  date: string;
-  sport: Sport;
-  title: string;
-  /** Free-text prescription, e.g. "4 × 8 min @ threshold, 3 min easy". */
-  detail: string | null;
-  targetMin: number | null;
-  targetKm: number | null;
-  /** Optional: which athlete(s) this is for. Empty = everyone. */
-  athletes: AthleteSlug[];
-  /** Which training block/phase this belongs to, e.g. "Base 1". */
-  phase: string | null;
-  week: number;
-}
-
-export type MatchStatus = "done" | "partial" | "missed" | "upcoming" | "rest";
-
-/** A planned session paired with what actually happened. */
-export interface DayMatch {
-  date: string;
-  athlete: AthleteSlug;
-  planned: PlanSession[];
-  actual: Activity[];
-  status: MatchStatus;
-}
-
 export interface WeeklyTotals {
   /** ISO week start (Monday), YYYY-MM-DD. */
   weekStart: string;
-  athlete: AthleteSlug;
-  bySport: Record<Sport, { timeSec: number; distanceM: number; count: number }>;
+  bySport: Record<SportBucket, { timeSec: number; distanceM: number; count: number }>;
   totalTimeSec: number;
-  plannedTimeSec: number;
 }
 
 export interface TrainingSummary {
-  athlete: AthleteSlug;
   since: string;
   totalTimeSec: number;
   totalDistanceM: number;
   sessions: number;
   /** Consecutive days with at least one activity, counting back from today. */
   streakDays: number;
-  bySport: Record<Sport, { timeSec: number; distanceM: number; count: number }>;
+  bySport: Record<SportBucket, { timeSec: number; distanceM: number; count: number }>;
 }
 
-/** Map a Strava sport_type onto our five buckets. */
-export function toSport(stravaSportType: string): Sport {
+/**
+ * Map a Strava sport_type onto the four buckets. Any ride (outdoor, trainer,
+ * VirtualRide, e-bike, gravel, mountain) is BIKE; any run (incl. trail and
+ * virtual) is RUN; any swim is SWIM. Everything else, HIIT, weights,
+ * workouts, yoga, walks and hikes included, is LIFT.
+ */
+export function toSport(stravaSportType: string): SportBucket {
   const t = stravaSportType.toLowerCase();
   if (t.includes("swim")) return "swim";
-  if (t.includes("ride") || t.includes("cycling") || t === "velomobile") return "bike";
-  if (t.includes("run") || t === "walk" || t === "hike") return "run";
-  if (
-    t.includes("weight") ||
-    t.includes("crossfit") ||
-    t.includes("workout") ||
-    t.includes("yoga") ||
-    t.includes("pilates")
-  )
-    return "strength";
-  return "other";
+  if (t.includes("ride") || t.includes("cycling") || t === "velomobile" || t === "handcycle") return "bike";
+  if (t.includes("run")) return "run";
+  return "strength";
 }

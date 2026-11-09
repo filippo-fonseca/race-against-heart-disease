@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Activities } from "@/components/admin/Activities";
-import { PlanHeader } from "@/components/admin/PlanHeader";
-import { PlanUpload } from "@/components/admin/PlanUpload";
+import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Mark } from "@/components/marks";
 import { SiteHeader } from "@/components/SiteHeader";
 import { requireAdmin } from "@/lib/admin/auth";
-import { planStats, recentActivities } from "@/lib/admin/dashboard";
+import { recentActivities } from "@/lib/admin/dashboard";
 import { site } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -17,14 +16,14 @@ export const metadata: Metadata = {
 /** The Strava resync action waits on the sync route, which can take a while. */
 export const maxDuration = 60;
 
-/** Shown while the session is checked and the counts load. */
+/** Shown while the session is checked and the activities load. */
 function Skeleton() {
   return (
     <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
       <div>
         <h1 className="flex items-center gap-3 font-serif text-[2.2rem] leading-none tracking-tight sm:text-[2.8rem]">
           <Mark className="h-8 w-8 text-red sm:h-9 sm:w-9" />
-          Plan
+          Admin
         </h1>
         <div className="label mt-3">{site.name} · Admin</div>
       </div>
@@ -34,11 +33,10 @@ function Skeleton() {
 
 async function Dashboard() {
   await requireAdmin();
-  const [stats, activities] = await Promise.all([planStats(), recentActivities(20)]);
+  const activities = await recentActivities(20);
   return (
     <>
-      <PlanHeader stats={stats} />
-      <PlanUpload />
+      <AdminHeader />
       <Activities rows={activities.rows} error={activities.error} />
     </>
   );

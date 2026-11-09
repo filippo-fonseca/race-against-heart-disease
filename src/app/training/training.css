@@ -41,11 +41,13 @@
 }
 
 /* Horizontal chart strip on small screens: snap per chart, hide the scrollbar. */
-.training .rail-strip {
+.training .rail-strip,
+.training .rail {
   scrollbar-width: none;
 }
 
-.training .rail-strip::-webkit-scrollbar {
+.training .rail-strip::-webkit-scrollbar,
+.training .rail::-webkit-scrollbar {
   display: none;
 }
 
@@ -55,5 +57,15 @@
   .training .wk-hr,
   .training .wk-bar {
     transition: none;
+  }
+}
+
+/* Phones: the sheet steps back so the feed's white cards sit on the desk
+   background with a 16px gutter. From sm up the sheet is the white surface. */
+@media (max-width: 639px) {
+  .training .sheet {
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
   }
 }

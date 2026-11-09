@@ -7,7 +7,7 @@ import { fmtStamp } from "./format";
 
 const idle: ResyncState = { status: "idle" };
 
-/** Calls the sync route server-side with CRON_SECRET and reports per athlete. */
+/** Calls the sync route server-side with CRON_SECRET and reports what it synced. */
 export function ResyncButton() {
   const [state, action, pending] = useActionState(resyncStrava, idle);
   return (

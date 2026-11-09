@@ -2,11 +2,16 @@
 
 import { useEffect } from "react";
 
+/** The reading line, as a fraction of the viewport height from the top. */
+const READING_LINE = 0.35;
+
 /**
- * Watches the week sections in the log and tells the chart rail which week
- * is being read. Writes `data-active-week` on the page root, toggles
- * `data-active` on every `[data-week]` chart mark, and fills the readout.
- * Nothing re-renders; it is attribute flips only.
+ * Watches the week sections in the feed and tells the chart rail which week
+ * is being read: the last section whose top has crossed the reading line
+ * (35% down the viewport), or the first section before any has. Writes
+ * `data-active-week` on the page root, toggles `data-active` on every
+ * `[data-week]` chart mark (the week bands, bars and calendar brackets), and
+ * fills the readout. Nothing re-renders; it is attribute flips only.
  */
 export function ScrollSpy({ rootId }: { rootId: string }) {
   useEffect(() => {
@@ -17,9 +22,7 @@ export function ScrollSpy({ rootId }: { rootId: string }) {
     const readouts = Array.from(root.querySelectorAll<HTMLElement>("[data-week-readout]"));
     if (sections.length === 0) return;
 
-    const visible = new Map<HTMLElement, number>();
     let current = "";
-
     const apply = (week: string, label: string) => {
       if (week === current) return;
       current = week;
@@ -31,35 +34,29 @@ export function ScrollSpy({ rootId }: { rootId: string }) {
       for (const r of readouts) r.textContent = label;
     };
 
+    let frame = 0;
     const pick = () => {
-      // The topmost section that still has part of itself in the reading band wins.
-      let best: HTMLElement | null = null;
-      let bestTop = Infinity;
-      for (const [el] of visible) {
-        const top = el.getBoundingClientRect().top;
-        if (top < bestTop) {
-          bestTop = top;
-          best = el;
-        }
+      frame = 0;
+      const line = window.innerHeight * READING_LINE;
+      let best = sections[0];
+      for (const s of sections) {
+        if (s.getBoundingClientRect().top <= line) best = s;
+        else break; // sections are in document order
       }
-      if (best) apply(best.dataset.weekSection ?? "", best.dataset.weekLabel ?? "");
+      apply(best.dataset.weekSection ?? "", best.dataset.weekLabel ?? "");
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(pick);
     };
 
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          const el = e.target as HTMLElement;
-          if (e.isIntersecting) visible.set(el, e.intersectionRatio);
-          else visible.delete(el);
-        }
-        pick();
-      },
-      // A band from 15% to 55% down the viewport: what the eye is on.
-      { rootMargin: "-15% 0px -45% 0px", threshold: [0, 0.01, 0.5, 1] },
-    );
-    for (const s of sections) io.observe(s);
-
-    return () => io.disconnect();
+    pick();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      if (frame) cancelAnimationFrame(frame);
+    };
   }, [rootId]);
 
   return null;
