@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getFundraisingSummary, getOverview } from "./overview";
 import { deletePlan, listPlan, replacePlanRange, upsertPlan } from "./plan-tools";
 import { deleteActivityTool, listActivitiesTool, logActivities, resyncStrava, updateActivityTool } from "./activity-tools";
+import { addPhoto, removePhoto } from "./photo-tools";
 import { McpToolError } from "./validate";
 
 /**
@@ -296,5 +297,48 @@ export function registerTools(server: McpServer): void {
       annotations: { ...WRITE, openWorldHint: true },
     },
     run(async (args) => resyncStrava(args)),
+  );
+
+  /* ---------------------------------------------------------------- */
+  /* Photos                                                             */
+  /* ---------------------------------------------------------------- */
+
+  server.registerTool(
+    "add_photo",
+    {
+      title: "Attach a photo to an activity",
+      description:
+        "Store a session photo and show it on that activity in the training log. Give the image as image_url (a URL this server can download, such as a Telegram file URL from getFile) or as image_base64 (raw base64 or a data: URL). JPEG, PNG, WebP or HEIC, at most 15 MB; prefer JPEG. Target the activity with activity_id, or with athlete plus date to use that athlete's only activity that day. If the day has several activities the call fails and lists them: ask which one. If it has none, the session is not logged yet: create it with log_activities (or resync_strava if it is on Strava) and retry with the new id.",
+      inputSchema: z.object({
+        athlete: z.enum(["filippo", "emir"]).describe("Whose activity: filippo or emir."),
+        activity_id: z.union([z.string(), z.number()]).nullish().describe("Activity id from list_activities. Takes priority over date."),
+        date: date("Day of the activity, used when activity_id is omitted").nullish(),
+        image_url: z.string().url().max(2048).nullish().describe("Public http(s) URL of the image. Not stored; only the image is."),
+        image_base64: z
+          .string()
+          .max(6_000_000)
+          .nullish()
+          .describe("The image bytes as base64 (or a data:image/...;base64, URL). Only for images under about 3 MB: the host caps request bodies at 4.5 MB, so send bigger files as image_url."),
+        mime_type: z.string().max(40).nullish().describe("Optional declared type, e.g. image/jpeg. The real type is detected from the bytes."),
+        caption: z.string().max(300).nullish().describe("Optional caption shown as the photo's alt text."),
+      }),
+      annotations: { ...WRITE, idempotentHint: false, openWorldHint: true },
+    },
+    run(async (args) => addPhoto(args)),
+  );
+
+  server.registerTool(
+    "remove_photo",
+    {
+      title: "Remove a photo from an activity",
+      description:
+        "Remove one photo from an activity (photo ids come from list_activities). Photos uploaded here are also deleted from storage. A Strava photo comes back on the next detail sync unless it is removed on Strava too. Confirm with the user first.",
+      inputSchema: z.object({
+        activity_id: z.union([z.string(), z.number()]).describe("Activity id from list_activities."),
+        photo_id: z.string().min(1).describe("Photo id from that activity's photos list."),
+      }),
+      annotations: DESTRUCTIVE,
+    },
+    run(async (args) => removePhoto(args)),
   );
 }

@@ -1,5 +1,6 @@
-import type { Activity } from "./types";
+import type { Activity, ActivityPhoto } from "./types";
 import { db, toActivityRow, type AthleteRow } from "./db";
+import { keepUploadedPhotos } from "./photos";
 import {
   getActivity,
   getValidToken,
@@ -32,10 +33,22 @@ export interface SyncStats {
   errors: string[];
 }
 
+/**
+ * Insert or replace one activity. Photos uploaded through the MCP server are
+ * carried over from the stored row, so a Strava resync (which rebuilds the
+ * photo list from Strava) does not drop them.
+ */
 export async function upsertActivity(activity: Activity, raw: unknown = null): Promise<void> {
+  const { data: prior, error: readError } = await db()
+    .from("activities")
+    .select("photos")
+    .eq("id", Number(activity.id))
+    .maybeSingle();
+  if (readError) throw readError;
+  const photos = keepUploadedPhotos(activity.photos, (prior as { photos: ActivityPhoto[] | null } | null)?.photos);
   const { error } = await db()
     .from("activities")
-    .upsert(toActivityRow(activity, raw), { onConflict: "id" });
+    .upsert(toActivityRow({ ...activity, photos }, raw), { onConflict: "id" });
   if (error) throw error;
 }
 

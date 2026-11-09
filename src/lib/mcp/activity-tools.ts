@@ -14,6 +14,7 @@ import {
   type ManualActivityInput,
 } from "./activity-logic";
 import { invalidateTraining } from "./cache";
+import { removeStoredPhotos } from "./photo-storage";
 import { assertDate, athletesFor, McpToolError, todayForAthletes, validateRange, type AthleteChoice } from "./validate";
 
 /**
@@ -131,8 +132,10 @@ export async function deleteActivityTool(args: { id: string | number }) {
   const current = await requireActivity(id);
   await deleteActivity(id);
   invalidateTraining();
+  const failed = await removeStoredPhotos(current.photos);
   return {
     deleted: compactActivity(current),
+    storage_cleanup_failed: failed,
     warning: isManualId(id) ? null : "This was a Strava activity: the next Strava sync restores it unless it is also deleted on Strava.",
   };
 }
