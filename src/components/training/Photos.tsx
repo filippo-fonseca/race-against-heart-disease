@@ -103,8 +103,8 @@ export function Photos({ photos, alt }: { photos: ActivityPhoto[]; alt: string }
 
 /**
  * Modal viewer on the native <dialog>: Escape closes (the browser's cancel),
- * focus moves in on open and back to the tile on close, the arrow keys step
- * through, and a click on the backdrop closes.
+ * focus moves to the close button on open and back to the tile on close, the
+ * arrow keys step through, and a click on the backdrop closes.
  */
 function Lightbox({
   photos,
@@ -120,20 +120,24 @@ function Lightbox({
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
   const n = photos.length;
   const p = photos[index];
   const step = useCallback((d: number) => onIndex((index + d + n) % n), [index, n, onIndex]);
-  // Close through the dialog itself so the browser hands focus back to the tile;
-  // its close event then tells the parent to unmount us.
+  // Close through the dialog itself; its close event tells the parent to unmount us.
   const close = () => ref.current?.close();
 
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
+    // The tile that opened us; focus goes back to it when we unmount.
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     if (!dialog.open) dialog.showModal();
-    return () => {
-      if (dialog.open) dialog.close();
-    };
+    closeRef.current?.focus();
+    // No dialog.close() here: its close event would unmount us (and Strict
+    // Mode's rehearsal cleanup would shut the dialog it just opened). Removing
+    // the element takes it out of the top layer anyway.
+    return () => opener?.focus();
   }, []);
 
   return (
@@ -173,7 +177,7 @@ function Lightbox({
       </div>
       <button
         type="button"
-        autoFocus
+        ref={closeRef}
         onClick={close}
         className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white text-[1.3rem] leading-none text-ink"
         aria-label="Close photo"
