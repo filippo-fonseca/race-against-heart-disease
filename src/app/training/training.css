@@ -41,11 +41,13 @@
 }
 
 /* Horizontal chart strip on small screens: snap per chart, hide the scrollbar. */
-.training .rail-strip {
+.training .rail-strip,
+.training .rail {
   scrollbar-width: none;
 }
 
-.training .rail-strip::-webkit-scrollbar {
+.training .rail-strip::-webkit-scrollbar,
+.training .rail::-webkit-scrollbar {
   display: none;
 }
 

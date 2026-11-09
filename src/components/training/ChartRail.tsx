@@ -38,7 +38,7 @@ export function ChartRail({
 }) {
   const chart = "min-w-[280px] snap-start lg:min-w-0";
   return (
-    <aside className="rise lg:sticky lg:top-8 lg:self-start" style={step(3)} aria-label="Charts">
+    <aside className="rail rise lg:sticky lg:top-[4.75rem] lg:max-h-[calc(100vh-5.75rem)] lg:self-start lg:overflow-y-auto" style={step(3)} aria-label="Charts">
       <div className="flex items-baseline justify-between border-b border-rule pb-2 lg:border-0 lg:pb-0">
         <span className="label">Reading</span>
         <span className="label !text-ink" data-week-readout>
@@ -50,7 +50,7 @@ export function ChartRail({
         </span>
       </div>
       {/* `relative` so the charts' sr-only summaries (absolute) are clipped by this strip rather than escaping to the sheet */}
-      <div className="rail-strip relative -mx-4 mt-4 flex snap-x snap-mandatory gap-8 overflow-x-auto px-4 pb-2 lg:mx-0 lg:mt-3 lg:flex-col lg:gap-7 lg:overflow-visible lg:px-0 lg:pb-0">
+      <div className="rail-strip relative -mx-4 mt-4 flex snap-x snap-mandatory gap-8 overflow-x-auto px-4 pb-2 lg:mx-0 lg:mt-3 lg:flex-col lg:gap-5 lg:overflow-visible lg:px-0 lg:pb-0">
         <div className={chart}>
           <Heatmap
             start={cal.start}
