@@ -4,10 +4,10 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { site } from "@/lib/site";
 import { totalsBySport } from "@/lib/training/aggregate";
-import { TRAINING_DAYS, TRAINING_START, dayNumber, todayISO } from "@/lib/training/dates";
+import { TRAINING_DAYS, TRAINING_START, dayNumber, todayISO, weeksElapsed } from "@/lib/training/dates";
 import { loadTraining, resolveAthlete } from "@/lib/training/load";
 import { SPORTS } from "@/lib/training/types";
-import { fmtHM, fmtKm, fmtSportTotal } from "./training/format";
+import { fmtHM, fmtHours, fmtKm, fmtSportTotal } from "./training/format";
 import { SportPill } from "./training/SportPill";
 import { SocialIcon } from "./Socials";
 
@@ -73,11 +73,18 @@ export async function StravaEmbed({ className = "" }: { className?: string }) {
         )}
       </div>
 
-      <dl className="mt-5 grid grid-cols-3 divide-x divide-white/25 border-t border-white/25">
+      <dl className="mt-5 grid grid-cols-4 divide-x divide-white/25 border-t border-white/25">
         <Stat label="Sessions" value={mine.length.toLocaleString()} />
         <Stat label="Hours" value={fmtHM(totalSec)} />
-        <Suspense fallback={<Stat label={`of ${TRAINING_DAYS}`} value="Day" />}>
-          <DayStat />
+        <Suspense
+          fallback={
+            <>
+              <Stat label="Avg / week" value="–" />
+              <Stat label={`of ${TRAINING_DAYS}`} value="Day" />
+            </>
+          }
+        >
+          <TodayStats totalSec={totalSec} />
         </Suspense>
       </dl>
 
@@ -122,19 +129,28 @@ export async function StravaEmbed({ className = "" }: { className?: string }) {
   );
 }
 
-/** "Day 8 of 154". Reads today's date, so it renders at request time. */
-async function DayStat() {
+/**
+ * Average hours per week so far, and "Day 8 of 154". Both read today's date,
+ * so they render at request time.
+ */
+async function TodayStats({ totalSec }: { totalSec: number }) {
   await connection();
   const today = todayISO();
   const n = today < TRAINING_START ? 0 : Math.min(dayNumber(today), TRAINING_DAYS);
-  return <Stat label={`of ${TRAINING_DAYS}`} value={`Day ${n}`} />;
+  const weeks = weeksElapsed(today);
+  return (
+    <>
+      <Stat label="Avg / week" value={`${fmtHours(weeks > 0 ? totalSec / weeks : 0)}h`} />
+      <Stat label={`of ${TRAINING_DAYS}`} value={`Day ${n}`} />
+    </>
+  );
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col-reverse items-center gap-1 py-3">
-      <dt className="text-[0.68rem] font-bold uppercase tracking-[0.16em] text-white">{label}</dt>
-      <dd className="num text-[1.6rem] leading-none">{value}</dd>
+      <dt className="text-[0.62rem] font-bold uppercase tracking-[0.12em] text-white sm:text-[0.68rem] sm:tracking-[0.16em]">{label}</dt>
+      <dd className="num whitespace-nowrap text-[1.3rem] leading-none sm:text-[1.6rem]">{value}</dd>
     </div>
   );
 }
