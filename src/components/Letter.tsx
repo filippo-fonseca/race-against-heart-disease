@@ -43,7 +43,17 @@ export function Letter() {
         className="rise mx-auto mt-5 max-w-[24ch] text-balance text-center font-serif text-[1.9rem] font-medium leading-[1.1] tracking-tight text-ink sm:max-w-[42ch] sm:text-[2.5rem]"
         style={step(1)}
       >
-        I have joined Team IRONMAN Foundation to help fight{" "}
+        I have joined Team{" "}
+        {/* The wordmark in place of the word: letters sit on the baseline at about cap height. */}
+        <Image
+          src="/ironman-logo.png"
+          alt="IRONMAN"
+          width={960}
+          height={238}
+          className="inline-block h-[1.08em] w-auto align-baseline"
+          priority
+        />{" "}
+        Foundation to help fight{" "}
         <span className="text-red">heart disease in youth.</span>
       </h1>
       <p
@@ -135,7 +145,7 @@ export function Letter() {
 
           <p className="rise" style={step(5)}>
             If you are able to give, every dollar goes to {site.charity.name}.
-            And whether or not you give, I hope you will take a child you love
+            And whether or not you give, I hope you will take a child you love (or yourself)
             outside this week and move with them. It is among the best gifts
             you can give a heart, and it costs nothing at all.
           </p>

@@ -6,7 +6,21 @@ import { site } from "@/lib/site";
 /** "admin" renders the bar with no active tab. */
 type Current = "letter" | "training" | "admin";
 
-/** Floating, rounded, translucent bar shared by every page. Sticks a little below the top edge. */
+/**
+ * Content width of each page's sheet, so the bar lines up with the page below
+ * it: the letter is 960px, the training log and admin are 1200px.
+ */
+const WIDTH: Record<Current, string> = {
+  letter: "max-w-[960px]",
+  training: "max-w-[1200px]",
+  admin: "max-w-[1200px]",
+};
+
+/**
+ * Floating, rounded, translucent bar shared by every page. Sticks a little
+ * below the top edge, with the same side gutter (px-4 / sm:px-6) and max width
+ * as the page's sheet so their edges align.
+ */
 export function SiteHeader({ current }: { current: Current }) {
   const tab = (active: boolean) =>
     `label whitespace-nowrap !tracking-[0.06em] transition-colors ${
@@ -14,8 +28,8 @@ export function SiteHeader({ current }: { current: Current }) {
     }`;
 
   return (
-    <header className="sticky top-0 z-50 px-3 pt-3 sm:px-4 sm:pt-4">
-      <div className="mx-auto flex h-14 max-w-[960px] items-center justify-between rounded-2xl bg-paper/80 pl-3 pr-2.5 shadow-[var(--shadow-surface)] backdrop-blur-xl sm:pl-4 sm:pr-3">
+    <header className="sticky top-0 z-50 px-4 pt-3 sm:px-6 sm:pt-4">
+      <div className={`mx-auto flex h-14 ${WIDTH[current]} items-center justify-between rounded-2xl bg-paper/80 pl-3 pr-2.5 shadow-[var(--shadow-surface)] backdrop-blur-xl sm:pl-4 sm:pr-3`}>
         <Link href="/" className="flex items-center gap-2.5" aria-label={site.name}>
           <Mark className="beat h-8 w-8 text-red" />
           <span className="hidden font-serif text-[16px] font-bold tracking-tight sm:inline">{site.name}</span>
@@ -31,8 +45,7 @@ export function SiteHeader({ current }: { current: Current }) {
             className={tab(current === "training")}
             aria-current={current === "training" ? "page" : undefined}
           >
-            <span className="sm:hidden">Training</span>
-            <span className="hidden sm:inline">The training</span>
+            Training log
           </Link>
           <a
             href={site.repo}
