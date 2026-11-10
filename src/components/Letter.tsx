@@ -145,7 +145,7 @@ export function Letter() {
 
           <p className="rise" style={step(5)}>
             If you are able to give, every dollar goes to {site.charity.name}.
-            And whether or not you give, I hope you will take a child you love
+            And whether or not you give, I hope you will take a child you love (or yourself)
             outside this week and move with them. It is among the best gifts
             you can give a heart, and it costs nothing at all.
           </p>
