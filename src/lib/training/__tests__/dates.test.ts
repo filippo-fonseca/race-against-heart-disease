@@ -13,6 +13,7 @@ import {
   weekNumber,
   weekStartFor,
   weekday,
+  weeksElapsed,
 } from "../dates";
 
 test("the window runs from Monday Nov 2 (day 1) to race day, Sunday Apr 4 (day 154)", () => {
@@ -45,4 +46,14 @@ test("inWindow includes both ends only", () => {
   assert.ok(inWindow(RACE_DAY));
   assert.ok(!inWindow("2026-11-01"));
   assert.ok(!inWindow("2027-04-05"));
+});
+
+test("weeksElapsed floors at one week, grows by day, and caps at race day", () => {
+  assert.equal(weeksElapsed("2026-11-01"), 0);
+  assert.equal(weeksElapsed(TRAINING_START), 1);
+  assert.equal(weeksElapsed("2026-11-08"), 1);
+  assert.equal(weeksElapsed("2026-11-15"), 2);
+  assert.equal(weeksElapsed("2026-11-11"), 10 / 7);
+  assert.equal(weeksElapsed(RACE_DAY), 22);
+  assert.equal(weeksElapsed("2027-05-01"), 22);
 });

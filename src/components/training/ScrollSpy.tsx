@@ -17,10 +17,11 @@ export function ScrollSpy({ rootId }: { rootId: string }) {
   useEffect(() => {
     const root = document.getElementById(rootId);
     if (!root) return;
-    const sections = Array.from(root.querySelectorAll<HTMLElement>("[data-week-section]"));
+    // Sections are looked up on every pick: "Show earlier weeks" adds more without remounting this.
+    const getSections = () => Array.from(root.querySelectorAll<HTMLElement>("[data-week-section]"));
     const marks = Array.from(root.querySelectorAll<HTMLElement | SVGElement>("[data-week]"));
     const readouts = Array.from(root.querySelectorAll<HTMLElement>("[data-week-readout]"));
-    if (sections.length === 0) return;
+    if (getSections().length === 0) return;
 
     let current = "";
     const apply = (week: string, label: string) => {
@@ -38,6 +39,8 @@ export function ScrollSpy({ rootId }: { rootId: string }) {
     const pick = () => {
       frame = 0;
       const line = window.innerHeight * READING_LINE;
+      const sections = getSections();
+      if (sections.length === 0) return;
       let best = sections[0];
       for (const s of sections) {
         if (s.getBoundingClientRect().top <= line) best = s;

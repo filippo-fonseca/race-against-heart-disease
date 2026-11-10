@@ -87,8 +87,10 @@ export interface TrainingSummary {
   totalTimeSec: number;
   totalDistanceM: number;
   sessions: number;
-  /** Consecutive days with at least one activity, counting back from today. */
-  streakDays: number;
+  /** Days with at least one activity. */
+  activeDays: number;
+  /** Days with none, not counting today until it is over. */
+  restDays: number;
   bySport: Record<SportBucket, { timeSec: number; distanceM: number; count: number }>;
 }
 

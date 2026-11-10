@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { calendarCells, cumulativeTime, hrBuckets, streakDays, summary, weeklyTotals } from "../aggregate";
+import { calendarCells, cumulativeTime, activeAndRestDays, hrBuckets, summary, weeklyTotals } from "../aggregate";
 import { activity } from "./fixtures";
 
 test("weekly totals bucket by Monday across a month boundary", () => {
@@ -49,22 +49,17 @@ test("weekly totals respect a clamped range", () => {
   assert.equal(rows[0].totalTimeSec, 600);
 });
 
-test("streak counts back from today and survives an empty today", () => {
-  const acts = ["2026-11-17", "2026-11-18", "2026-11-19"].map((date) => activity({ date, sport: "run" }));
-  assert.equal(streakDays(acts, "2026-11-19"), 3);
-  assert.equal(streakDays(acts, "2026-11-20"), 3, "today not over yet");
-  assert.equal(streakDays(acts, "2026-11-21"), 0, "yesterday was empty");
-  assert.equal(streakDays([], "2026-11-21"), 0);
-});
-
-test("streak breaks on a gap and two sessions in one day count once", () => {
+test("active and rest days: two sessions in one day count once, an empty today is not a rest day yet", () => {
   const acts = [
-    activity({ date: "2026-11-15", sport: "run" }),
-    activity({ date: "2026-11-17", sport: "swim" }),
-    activity({ date: "2026-11-17", sport: "bike" }),
-    activity({ date: "2026-11-18", sport: "run" }),
+    activity({ date: "2026-11-02", sport: "run" }),
+    activity({ date: "2026-11-04", sport: "swim" }),
+    activity({ date: "2026-11-04", sport: "bike" }),
+    activity({ date: "2026-11-05", sport: "run" }),
   ];
-  assert.equal(streakDays(acts, "2026-11-18"), 2);
+  assert.deepEqual(activeAndRestDays(acts, "2026-11-02", "2026-11-05"), { activeDays: 3, restDays: 1 });
+  assert.deepEqual(activeAndRestDays(acts, "2026-11-02", "2026-11-06"), { activeDays: 3, restDays: 1 }, "today not over yet");
+  assert.deepEqual(activeAndRestDays(acts, "2026-11-02", "2026-11-07"), { activeDays: 3, restDays: 2 });
+  assert.deepEqual(activeAndRestDays([], "2026-11-02", "2026-11-02"), { activeDays: 0, restDays: 0 });
 });
 
 test("summary totals since a date, legacy other counted as LIFT", () => {
@@ -79,7 +74,8 @@ test("summary totals since a date, legacy other counted as LIFT", () => {
   assert.equal(s.totalTimeSec, 5500);
   assert.equal(s.bySport.strength.timeSec, 500);
   assert.equal(s.totalDistanceM, 26200);
-  assert.equal(s.streakDays, 2);
+  assert.equal(s.activeDays, 2);
+  assert.equal(s.restDays, 0);
   assert.equal(s.bySport.run.count, 0);
   assert.equal(s.bySport.bike.distanceM, 25000);
 });

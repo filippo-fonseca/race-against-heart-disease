@@ -46,7 +46,7 @@ Every activity lands in one of four buckets, shown everywhere as pills (`src/com
 ## What `/training` shows
 
 - **Header**: title, race and date, and "Day N of 154".
-- **Numerals**: days to race, hours trained, sessions, streak, then one total per sport (SWIM km, BIKE time, RUN km, LIFT time).
+- **Numerals**: days to race, hours trained, sessions, active days, rest days, then one total per sport (SWIM km, BIKE time, RUN km, LIFT time).
 - **Feed**: one card per activity, newest first, under quiet day headers ("Day 8 · Sun, Nov 8") and subtle week separators. Days with nothing logged are absent. Each card has the pill, the name, the local start time and a line of description, two to four stat figures, and the photos (Strava's plus any attached through the MCP) as a large single image or a grid with a "+N" tile, opening in an accessible lightbox.
 - **Chart rail** (sticky on desktop, a swipeable strip on phones): calendar heatmap, hours per week stacked by sport, cumulative hours per sport, and a heart-rate histogram. As each week of cards scrolls past a reading line, `ScrollSpy.tsx` highlights that week in every chart through the `data-week` marks.
 

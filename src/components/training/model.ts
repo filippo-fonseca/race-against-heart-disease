@@ -82,6 +82,43 @@ export function buildFeed(activities: Activity[]): FeedWeek[] {
   return [...weeks.values()].sort((a, b) => b.week - a.week);
 }
 
+/* ------------------------------------------------------------------ */
+/* Feed pagination                                                     */
+/* ------------------------------------------------------------------ */
+
+/** Weeks of the feed rendered per page; "Show earlier weeks" adds this many more. */
+export const FEED_PAGE_WEEKS = 4;
+
+/**
+ * How many feed weeks to render for a `?weeks=` value: at least one page,
+ * at most every week with activities. Garbage falls back to one page.
+ */
+export function feedWeeksShown(param: string | undefined, available: number): number {
+  const n = Number.parseInt(param ?? "", 10);
+  const wanted = Number.isFinite(n) && n > 0 ? n : FEED_PAGE_WEEKS;
+  return Math.max(0, Math.min(Math.max(wanted, FEED_PAGE_WEEKS), available));
+}
+
+/**
+ * Where each trained day links from the calendar: its card in the feed. A day
+ * in a week that is not rendered yet links to a page that renders enough weeks
+ * to include it, so the anchor always exists. `hrefFor(n)` builds the query
+ * for n weeks (keeping any other params).
+ */
+export function dayLinks(weeks: FeedWeek[], shown: number, hrefFor: (weeks: number) => string): Map<string, string> {
+  const out = new Map<string, string>();
+  weeks.forEach((w, i) => {
+    const needed = Math.max(shown, i + 1);
+    for (const d of w.days) out.set(d.date, `${hrefFor(needed)}#${dayAnchor(d.date)}`);
+  });
+  return out;
+}
+
+/** The feed element id for a day: "day-2026-11-08". */
+export function dayAnchor(date: string): string {
+  return `day-${date}`;
+}
+
 /** Avg-HR histogram weighted by moving minutes. Bins are [lo, lo + step). */
 export function hrBins(activities: Activity[], lo = 90, hi = 190, step = 10): { lo: number; minutes: number }[] {
   const bins = Array.from({ length: (hi - lo) / step }, (_, i) => ({ lo: lo + i * step, minutes: 0 }));

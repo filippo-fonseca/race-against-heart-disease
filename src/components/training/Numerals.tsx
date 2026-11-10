@@ -36,16 +36,16 @@ function Figure({
  */
 export function Numerals({ summary, daysToRace }: { summary: TrainingSummary; daysToRace: number }) {
   const hours = Math.floor(summary.totalTimeSec / 3600);
-  const streak = summary.streakDays;
   return (
     <div className="border-y border-ink py-6">
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
         <Figure value={String(daysToRace)} label="Days to race" i={2} accent />
         <Figure value={String(hours)} unit="h" label="Trained" i={3} />
         <Figure value={String(summary.sessions)} label="Sessions" i={4} />
-        <Figure value={String(streak)} unit={streak === 1 ? "day" : "days"} label="Streak" i={5} />
+        <Figure value={String(summary.activeDays)} label="Active days" i={5} />
+        <Figure value={String(summary.restDays)} label="Rest days" i={6} />
       </dl>
-      <dl className="rise mt-6 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-rule pt-5 sm:grid-cols-4" style={step(6)}>
+      <dl className="rise mt-6 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-rule pt-5 sm:grid-cols-4" style={step(7)}>
         {SPORTS.map((s) => (
           <div key={s} className="flex items-center gap-2.5">
             <dt>

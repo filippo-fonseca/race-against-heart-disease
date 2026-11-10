@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense, type CSSProperties } from "react";
 import { Mark } from "@/components/marks";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ChartRail } from "@/components/training/ChartRail";
+import { DayJump } from "@/components/training/DayJump";
 import { Log } from "@/components/training/Log";
 import { Numerals } from "@/components/training/Numerals";
 import { ScrollSpy } from "@/components/training/ScrollSpy";
-import { buildFeed, buildWeekSlots, minutesByDate } from "@/components/training/model";
+import { FEED_PAGE_WEEKS, buildFeed, buildWeekSlots, dayLinks, feedWeeksShown, minutesByDate } from "@/components/training/model";
 import { site } from "@/lib/site";
 import { summary, weeklyTotals } from "@/lib/training/aggregate";
 import {
@@ -91,6 +93,16 @@ async function Body({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const currentWeek = weekNumber(today);
   const slots = buildWeekSlots(weeklyTotals(activities, { from: TRAINING_START, to: RACE_DAY }));
   const weeks = buildFeed(activities);
+  // The feed renders the newest weeks first and grows a page at a time via ?weeks=N.
+  const shown = feedWeeksShown(first(params.weeks), weeks.length);
+  const hrefFor = (n: number) => {
+    const q = new URLSearchParams();
+    if (useMock) q.set("mock", "1");
+    if (n > FEED_PAGE_WEEKS) q.set("weeks", String(n));
+    const qs = q.toString();
+    return qs ? `/training?${qs}` : "/training";
+  };
+  const links = dayLinks(weeks, shown, hrefFor);
   const totals = summary(activities, TRAINING_START, today);
 
   return (
@@ -116,13 +128,30 @@ async function Body({ searchParams }: { searchParams: Promise<SearchParams> }) {
               weekNumberOf: weekNumber,
             }}
             minutes={minutesByDate(activities)}
+            links={links}
             slots={slots}
             activities={activities}
           />
         </div>
         <div id="training-log">
           {weeks.length > 0 ? (
-            <Log weeks={weeks} today={today} />
+            <>
+              <Log weeks={weeks.slice(0, shown)} today={today} />
+              {shown < weeks.length ? (
+                <div className="mt-12 flex flex-col items-center gap-2">
+                  <Link
+                    href={hrefFor(Math.min(weeks.length, shown + FEED_PAGE_WEEKS))}
+                    scroll={false}
+                    className="inline-flex h-10 items-center rounded-full border border-ink px-5 text-[0.9rem] font-semibold text-ink transition-colors hover:bg-ink hover:text-paper"
+                  >
+                    Show earlier weeks
+                  </Link>
+                  <span className="label">
+                    {weeks.length - shown} more {weeks.length - shown === 1 ? "week" : "weeks"}
+                  </span>
+                </div>
+              ) : null}
+            </>
           ) : (
             <p className="rise font-serif text-[1.15rem] text-ink-soft" style={step(4)}>
               {today < TRAINING_START
@@ -134,6 +163,7 @@ async function Body({ searchParams }: { searchParams: Promise<SearchParams> }) {
       </div>
 
       <ScrollSpy rootId="training-root" />
+      <DayJump rootId="training-root" />
     </>
   );
 }
