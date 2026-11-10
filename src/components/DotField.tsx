@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 /** Grid pitch in CSS pixels. */
@@ -31,8 +32,16 @@ interface Dot {
  * Fixed and non-interactive (pointer-events: none). The loop only runs while
  * something is moving and stops once every dot is at rest; it sleeps in hidden
  * tabs. With reduced motion, or without a mouse, it draws the still grid.
+ * Not shown on the training log.
  */
 export function DotField() {
+  // The training log keeps a plain background: its charts and feed are busy enough.
+  const pathname = usePathname();
+  if (pathname?.startsWith("/training")) return null;
+  return <DotCanvas />;
+}
+
+function DotCanvas() {
   const ref = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {

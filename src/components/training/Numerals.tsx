@@ -20,7 +20,7 @@ function Figure({
 }) {
   // dd above dt visually (figure, then its name) while the list order stays term first.
   return (
-    <div className="rise flex min-w-0 flex-col-reverse justify-end" style={step(i)}>
+    <div className="rise flex min-w-0 flex-col-reverse items-center justify-end text-center" style={step(i)}>
       <dt className="label mt-2">{label}</dt>
       <dd className={`num text-[1.85rem] leading-none tracking-tight sm:text-[2.4rem] ${accent ? "text-red" : "text-ink"}`}>
         {value}
@@ -47,7 +47,7 @@ export function Numerals({ summary, daysToRace }: { summary: TrainingSummary; da
       </dl>
       <dl className="rise mt-6 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-rule pt-5 sm:grid-cols-4" style={step(7)}>
         {SPORTS.map((s) => (
-          <div key={s} className="flex items-center gap-2.5">
+          <div key={s} className="flex items-center justify-center gap-2.5">
             <dt>
               <SportPill sport={s} />
             </dt>

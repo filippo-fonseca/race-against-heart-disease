@@ -5,6 +5,7 @@ import { fmtClock, fmtDay, fmtHM, fmtKm, fmtPace, fmtWeekRange } from "./format"
 import { dayAnchor, type FeedWeek } from "./model";
 import { Photos } from "./Photos";
 import { SportPill } from "./SportPill";
+import { SocialIcon } from "../Socials";
 
 const step = (i: number) => ({ "--i": i }) as CSSProperties;
 
@@ -35,6 +36,27 @@ export function activityStats(a: Activity): Stat[] {
   return stats.filter((s): s is Stat => s !== null).slice(0, 4);
 }
 
+/** Strava brand orange. */
+const STRAVA_ORANGE = "#FC4C02";
+
+/** "View on Strava" pill (Strava's required wording for links back to an activity). */
+function StravaLink({ id, name }: { id: string; name: string }) {
+  return (
+    <a
+      href={`https://www.strava.com/activities/${id}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`View ${name} on Strava`}
+      title="View on Strava"
+      className="mt-[0.2rem] inline-flex h-7 w-7 shrink-0 items-center justify-center gap-1.5 rounded-full font-mono text-[0.64rem] font-bold uppercase tracking-[0.1em] text-white sm:w-auto sm:px-2.5 transition-[filter,transform] hover:brightness-110 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FC4C02]"
+      style={{ backgroundColor: STRAVA_ORANGE }}
+    >
+      <SocialIcon kind="strava" className="h-3.5 w-3.5" />
+      <span className="hidden sm:inline">View on Strava</span>
+    </a>
+  );
+}
+
 function ActivityCard({ a }: { a: Activity }) {
   const stats = activityStats(a);
   return (
@@ -42,7 +64,8 @@ function ActivityCard({ a }: { a: Activity }) {
       <article aria-label={a.name} className="px-4 pb-4 pt-4 sm:px-6 sm:pb-5 sm:pt-5">
         <div className="flex items-start gap-2.5">
           <SportPill sport={a.sport} className="mt-[0.35rem]" />
-          <h4 className="min-w-0 font-serif text-[1.3rem] leading-snug text-ink sm:text-[1.4rem]">{a.name}</h4>
+          <h4 className="min-w-0 flex-1 font-serif text-[1.3rem] leading-snug text-ink sm:text-[1.4rem]">{a.name}</h4>
+          <StravaLink id={a.id} name={a.name} />
         </div>
         <p className="mt-1.5 line-clamp-2 text-[0.98rem] leading-snug text-ink-soft" title={a.description ?? undefined}>
           <span className="num text-[0.82rem]">{fmtClock(a.startLocal)}</span>
