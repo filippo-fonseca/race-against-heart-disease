@@ -70,10 +70,25 @@ body {
 }
 
 /* White surface on the light page. */
+/*
+ * The white page. Its fill and shadow live on ::before at z -20, under the
+ * DotField canvas (z -10), so the dots show on the page while the text stays
+ * above them. That only works while .sheet itself is not a stacking context:
+ * no z-index, transform, filter, opacity or isolation on it.
+ */
 .sheet {
-  background: var(--paper);
+  position: relative;
   border-radius: 16px;
+}
+.sheet::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -20;
+  border-radius: inherit;
+  background: var(--paper);
   box-shadow: var(--shadow-surface);
+  pointer-events: none;
 }
 
 /* Pill buttons */

@@ -64,9 +64,10 @@
    background with a 16px gutter. From sm up the sheet is the white surface. */
 @media (max-width: 639px) {
   .training .sheet {
-    background: transparent;
-    box-shadow: none;
     border-radius: 0;
+  }
+  .training .sheet::before {
+    display: none;
   }
 }
 
