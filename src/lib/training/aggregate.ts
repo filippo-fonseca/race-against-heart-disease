@@ -74,23 +74,24 @@ export function weeklyTotals(activities: Activity[], opts: WeeklyTotalsOptions =
 }
 
 /* ------------------------------------------------------------------ */
-/* Summary and streak                                                  */
+/* Summary, active days and rest days                                  */
 /* ------------------------------------------------------------------ */
 
 /**
- * Consecutive days with at least one activity, counting back from `today`.
- * A day without activity ends the streak, except today itself: an empty today
- * does not break a streak that ran through yesterday, since the day is not over.
+ * Days with at least one activity, and days without, from `since` through
+ * `today`. Today counts as a rest day only once it is over, so an empty today
+ * is left out of both until something is logged.
  */
-export function streakDays(activities: Activity[], today: ISODate = todayISO()): number {
-  const days = new Set(activities.map((a) => a.date));
-  let cursor = days.has(today) ? today : addDays(today, -1);
-  let n = 0;
-  while (days.has(cursor)) {
-    n += 1;
-    cursor = addDays(cursor, -1);
-  }
-  return n;
+export function activeAndRestDays(
+  activities: Activity[],
+  since: ISODate,
+  today: ISODate = todayISO(),
+): { activeDays: number; restDays: number } {
+  const days = new Set(activities.filter((a) => a.date >= since && a.date <= today).map((a) => a.date));
+  const activeDays = days.size;
+  const through = days.has(today) ? today : addDays(today, -1);
+  const elapsed = eachDay(since, through).length;
+  return { activeDays, restDays: Math.max(0, elapsed - activeDays) };
 }
 
 /** Totals from `since` through `today`, both included. */
@@ -107,7 +108,7 @@ export function summary(activities: Activity[], since: ISODate, today: ISODate =
     totalTimeSec,
     totalDistanceM,
     sessions: acts.length,
-    streakDays: streakDays(acts, today),
+    ...activeAndRestDays(acts, since, today),
     bySport: totalsBySport(acts),
   };
 }
