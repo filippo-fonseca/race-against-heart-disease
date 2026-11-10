@@ -22,18 +22,8 @@ export function Letter() {
       <header className="rise flex flex-col items-center gap-2 text-center" style={step(0)}>
         <Mark className="beat h-12 w-12 text-red sm:h-14 sm:w-14" />
         <div className="font-serif text-[1.25rem] leading-none tracking-tight sm:text-[1.4rem]">{site.name}</div>
-        <div className="mt-1.5 flex flex-col items-center gap-2">
-          <Image
-            src="/ironman-logo.png"
-            alt="IRONMAN"
-            width={960}
-            height={238}
-            className="h-8 w-auto sm:h-10"
-            priority
-          />
-          <div className="label">
-            {site.race.name.replace(/^IRONMAN\s*/i, "")} · {site.race.city}, {site.race.stateAbbr} · {site.race.dateLabel}
-          </div>
+        <div className="label mt-1">
+          {site.race.name} · {site.race.city}, {site.race.stateAbbr} · {site.race.dateLabel}
         </div>
       </header>
 
