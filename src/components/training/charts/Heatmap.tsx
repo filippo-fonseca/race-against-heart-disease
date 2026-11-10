@@ -1,5 +1,5 @@
 import { ChartFrame } from "./frame";
-import { fmtMonth } from "../format";
+import { fmtDay, fmtHM, fmtMonth } from "../format";
 
 const CELL = 11;
 const GAP = 3;
@@ -10,7 +10,8 @@ const DOW = ["M", "", "W", "", "F", "", "S"];
 
 /**
  * Calendar heatmap: one column per week of the window (Nov 2 to race day), Monday on top.
- * Red intensity scales with minutes trained that day.
+ * Red intensity scales with minutes trained that day. Trained days link to
+ * their cards in the feed (see DayJump).
  */
 export function Heatmap({
   start,
@@ -18,6 +19,7 @@ export function Heatmap({
   today,
   raceDay,
   minutes,
+  links,
   addDays,
 }: {
   start: string;
@@ -26,6 +28,8 @@ export function Heatmap({
   raceDay: string;
   /** minutes trained per YYYY-MM-DD */
   minutes: Map<string, number>;
+  /** feed link per trained YYYY-MM-DD */
+  links: Map<string, string>;
   addDays: (iso: string, n: number) => string;
 }) {
   const width = LEFT + totalWeeks * PITCH;
@@ -57,7 +61,7 @@ export function Heatmap({
       title="Calendar"
       meta={`${trained} / ${pastDays} days`}
       label="Calendar heatmap of training days"
-      summary={`Training days since day one: ${trained} of ${pastDays} days so far had at least one session. Darker red means more minutes.`}
+      summary={`Training days since day one: ${trained} of ${pastDays} days so far had at least one session. Darker red means more minutes. Select a day to jump to its sessions.`}
     >
       <svg viewBox={`0 0 ${width} ${height}`} className="block w-full" shapeRendering="crispEdges">
         {months.map((m) => (
@@ -79,7 +83,7 @@ export function Heatmap({
           const t = Math.min(1, c.min / 150);
           const fill = c.min > 0 ? "var(--red)" : future ? "#f3f0eb" : "none";
           const opacity = c.min > 0 ? 0.18 + 0.82 * t : 1;
-          return (
+          const rect = (
             <rect
               key={c.date}
               x={c.x}
@@ -91,6 +95,16 @@ export function Heatmap({
               stroke={isRace ? "var(--red)" : isToday ? "var(--ink)" : c.min > 0 || future ? "none" : "var(--rule)"}
               strokeWidth={1}
             />
+          );
+          const href = links.get(c.date);
+          if (!href) return rect;
+          const label = `${fmtDay(c.date)}, ${fmtHM(c.min * 60)}`;
+          return (
+            // A plain SVG link; DayJump (client) turns the click into an in-place scroll or navigation.
+            <a key={c.date} href={href} className="cal-day" aria-label={label}>
+              <title>{label}</title>
+              {rect}
+            </a>
           );
         })}
         {/* hairline bracket under the week being read; toggled by the scroll spy */}

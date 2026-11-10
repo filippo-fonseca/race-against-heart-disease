@@ -30,9 +30,12 @@ export function ChartRail({
   minutes,
   slots,
   activities,
+  links,
 }: {
   cal: RailCalendar;
   minutes: Map<string, number>;
+  /** Feed link per trained day, for the calendar. */
+  links: Map<string, string>;
   slots: WeekSlot[];
   activities: Activity[];
 }) {
@@ -58,6 +61,7 @@ export function ChartRail({
             today={cal.today}
             raceDay={cal.raceDay}
             minutes={minutes}
+            links={links}
             addDays={cal.addDays}
           />
         </div>

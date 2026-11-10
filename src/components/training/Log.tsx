@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import { dayNumber } from "@/lib/training/dates";
 import { bucketOf, type Activity } from "@/lib/training/types";
 import { fmtClock, fmtDay, fmtHM, fmtKm, fmtPace, fmtWeekRange } from "./format";
-import type { FeedWeek } from "./model";
+import { dayAnchor, type FeedWeek } from "./model";
 import { Photos } from "./Photos";
 import { SportPill } from "./SportPill";
 
@@ -99,7 +99,7 @@ export function Log({ weeks, today }: { weeks: FeedWeek[]; today: string }) {
             {w.days.map((d) => {
               const isToday = d.date === today;
               return (
-                <div key={d.date}>
+                <div key={d.date} id={dayAnchor(d.date)} className="cal-target scroll-mt-28">
                   <h3 className={`label ${isToday ? "!text-red" : "!text-ink"}`}>
                     Day {dayNumber(d.date)} · <time dateTime={d.date}>{fmtDay(d.date)}</time>
                     {isToday ? " · Today" : ""}

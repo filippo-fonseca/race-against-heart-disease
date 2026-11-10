@@ -69,3 +69,21 @@
     border-radius: 0;
   }
 }
+
+/* Calendar days that link to their sessions in the feed. */
+.training .cal-day {
+  cursor: pointer;
+}
+
+.training .cal-day rect {
+  transition: stroke 120ms ease;
+}
+
+.training .cal-day:hover rect,
+.training .cal-day:focus-visible rect {
+  stroke: var(--ink);
+}
+
+.training .cal-day:focus-visible {
+  outline: none;
+}
