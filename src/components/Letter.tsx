@@ -12,6 +12,9 @@ import { StravaEmbed } from "./StravaEmbed";
 /** Stagger index for the `.rise` animation. */
 const step = (i: number) => ({ "--i": i }) as CSSProperties;
 
+/** Anchor for the letter itself, linked from the hero ("Read the letter"). */
+const LETTER_ID = "letter";
+
 export function Letter() {
   return (
     <article
@@ -92,15 +95,21 @@ export function Letter() {
           <Mark className="h-5 w-5" />
           Donate through {site.charity.team}
         </a>
-        <Link href="/training" className="label underline decoration-rule underline-offset-4 hover:text-red">
-          Follow the training →
-        </Link>
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+          <a href={`#${LETTER_ID}`} className="label underline decoration-rule underline-offset-4 hover:text-red">
+            Read the letter ↓
+          </a>
+          <span className="label" aria-hidden="true">·</span>
+          <Link href="/training" className="label underline decoration-rule underline-offset-4 hover:text-red">
+            Follow the training →
+          </Link>
+        </div>
       </div>
       <StravaEmbed className="rise mt-8" />
 
       <div className="rise mx-auto mt-14 h-px w-full bg-red" style={step(2)} />
 
-      <div className="mt-14">
+      <div id={LETTER_ID} className="mt-14 scroll-mt-28">
         {/* the letter */}
         <div className="mx-auto max-w-[640px] space-y-6 text-justify font-serif text-[1.2rem] leading-[1.6] text-ink hyphens-auto sm:text-[1.28rem]">
           <p className="rise dropcap" style={step(2)}>
