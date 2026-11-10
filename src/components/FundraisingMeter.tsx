@@ -66,7 +66,7 @@ function Bar({
 }
 
 /**
- * The top of the letter: three big figures (days to race, raised, miles),
+ * The top of the letter: three big figures (days to IRONMAN Texas, raised, miles),
  * a thick progress bar, and the donate button. Centered.
  */
 export async function CampaignHero({ className = "" }: { className?: string }) {
@@ -77,7 +77,7 @@ export async function CampaignHero({ className = "" }: { className?: string }) {
   return (
     <section className={`text-center ${className}`} aria-label="Campaign at a glance">
       <dl className="grid grid-cols-3 divide-x divide-rule">
-        <Figure label="Days to race">
+        <Figure label="Days to IRONMAN Texas">
           <CountdownDays />
         </Figure>
         <Figure label={`Raised of ${formatUsd(f.goalUsd)}`}>{formatUsd(f.raisedUsd)}</Figure>
@@ -107,7 +107,7 @@ export async function CampaignHero({ className = "" }: { className?: string }) {
 
 function Figure({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col-reverse items-center gap-2 sm:px-6">
+    <div className="flex flex-col-reverse items-center justify-end gap-2 sm:px-6">
       <dt className="label">{label}</dt>
       <dd className="num text-[2.4rem] leading-none text-red sm:text-[2.8rem]">{children}</dd>
     </div>

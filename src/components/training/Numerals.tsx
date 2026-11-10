@@ -20,8 +20,8 @@ function Figure({
 }) {
   // dd above dt visually (figure, then its name) while the list order stays term first.
   return (
-    <div className="rise flex min-w-0 flex-col-reverse" style={step(i)}>
-      <dt className="label mt-2 whitespace-nowrap">{label}</dt>
+    <div className="rise flex min-w-0 flex-col-reverse justify-end" style={step(i)}>
+      <dt className="label mt-2">{label}</dt>
       <dd className={`num text-[1.85rem] leading-none tracking-tight sm:text-[2.4rem] ${accent ? "text-red" : "text-ink"}`}>
         {value}
         {unit ? <span className="ml-1 text-[0.95rem] text-ink-soft">{unit}</span> : null}
@@ -39,7 +39,7 @@ export function Numerals({ summary, daysToRace }: { summary: TrainingSummary; da
   return (
     <div className="border-y border-ink py-6">
       <dl className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
-        <Figure value={String(daysToRace)} label="Days to race" i={2} accent />
+        <Figure value={String(daysToRace)} label="Days to IRONMAN Texas" i={2} accent />
         <Figure value={String(hours)} unit="h" label="Trained" i={3} />
         <Figure value={String(summary.sessions)} label="Sessions" i={4} />
         <Figure value={String(summary.activeDays)} label="Active days" i={5} />
