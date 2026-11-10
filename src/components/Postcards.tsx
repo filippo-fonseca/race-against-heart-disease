@@ -19,7 +19,7 @@ const CARDS: Postcard[] = [
   { src: "/gallery/05-wet-lab.jpg", w: 595, h: 900, caption: "feeding heart tissue", alt: "Filippo in a blue lab coat and pink gloves working in a biosafety cabinet" },
   { src: "/gallery/06-gloved-up.jpg", w: 671, h: 900, caption: "gloved up", alt: "Filippo in a lab coat giving a thumbs up with a pink glove" },
   { src: "/gallery/07-mgh.jpg", w: 675, h: 900, caption: "summer at Mass General Hospital doing biomedical research", alt: "The Massachusetts General Hospital building against a blue sky" },
-  { src: "/gallery/08-suit.jpg", w: 675, h: 900, caption: "suit and badge", alt: "Filippo in a blue suit with a hospital badge giving a thumbs up" },
+  { src: "/gallery/08-suit.jpg", w: 675, h: 900, caption: "hospital work", alt: "Filippo in a blue suit with a hospital badge giving a thumbs up" },
   { src: "/gallery/09-half-marathon.jpg", w: 562, h: 900, caption: "Baystate Half, 1:23 PR", alt: "Filippo running a half marathon in a neon shirt, Strava stats overlaid" },
   { src: "/gallery/10-finish.jpg", w: 675, h: 900, caption: "medal on + family!", alt: "Filippo wearing a finisher medal after a race, with family beside him" },
   { src: "/gallery/11-paris.jpg", w: 675, h: 900, caption: "Paris, mid-run", alt: "Filippo standing near the Eiffel Tower in running clothes under a cloudy sky" },
