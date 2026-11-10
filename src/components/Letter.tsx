@@ -110,7 +110,7 @@ export function Letter() {
 
       <div className="mt-14">
         {/* the letter */}
-        <div className="mx-auto max-w-[640px] space-y-6 font-serif text-[1.2rem] leading-[1.6] text-ink sm:text-[1.28rem]">
+        <div className="mx-auto max-w-[640px] space-y-6 text-justify font-serif text-[1.2rem] leading-[1.6] text-ink hyphens-auto sm:text-[1.28rem]">
           <p className="rise dropcap" style={step(2)}>
             For what little attention it gets, I was surprised to find out that
             coronary heart disease is the leading cause of death worldwide.

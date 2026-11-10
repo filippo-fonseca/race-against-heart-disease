@@ -42,7 +42,7 @@ export function Postcards({ className = "" }: { className?: string }) {
         <h2 id="postcards-title" className="mt-2 text-center font-serif text-[1.6rem] leading-tight tracking-tight sm:text-[1.9rem]">
           From building robots to running races
         </h2>
-        <div className="mt-6 space-y-4 font-serif text-[1.12rem] leading-relaxed text-ink">
+        <div className="mt-6 space-y-4 text-justify font-serif text-[1.12rem] leading-relaxed text-ink hyphens-auto">
           {site.author.about.map((p) => (
             <p key={p.slice(0, 24)}>{p}</p>
           ))}
