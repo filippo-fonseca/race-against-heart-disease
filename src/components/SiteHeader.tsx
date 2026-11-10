@@ -45,8 +45,7 @@ export function SiteHeader({ current }: { current: Current }) {
             className={tab(current === "training")}
             aria-current={current === "training" ? "page" : undefined}
           >
-            <span className="sm:hidden">Training</span>
-            <span className="hidden sm:inline">The training</span>
+            Training log
           </Link>
           <a
             href={site.repo}
