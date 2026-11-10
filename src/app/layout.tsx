@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Caveat, Courier_Prime, EB_Garamond } from "next/font/google";
+import { DotField } from "@/components/DotField";
 import { site } from "@/lib/site";
 import "./globals.css";
 
@@ -61,7 +62,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${garamond.variable} ${courier.variable} ${caveat.variable} h-full antialiased`}
     >
-      <body className="desk min-h-full flex flex-col">{children}</body>
+      <body className="desk min-h-full flex flex-col">
+        <DotField />
+        {children}
+      </body>
     </html>
   );
 }

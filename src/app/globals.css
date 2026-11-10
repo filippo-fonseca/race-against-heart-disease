@@ -39,8 +39,8 @@ html {
   color-scheme: light;
 }
 
+/* No body background: html paints the desk, so the DotField canvas (z -10) shows between the two. */
 body {
-  background: var(--desk);
   color: var(--ink);
   font-family: var(--font-garamond), Georgia, serif;
   -webkit-font-smoothing: antialiased;
