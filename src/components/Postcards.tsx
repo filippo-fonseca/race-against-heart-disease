@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { site } from "@/lib/site";
+import { ABOUT_ID } from "./AboutLink";
 
 interface Postcard {
   src: string;
@@ -36,7 +37,7 @@ const TILT = [-2.2, 1.6, -1, 2.4, -1.8, 1.1, -2.6, 1.9, -1.3, 2.1, -0.8, 1.4, -2
  */
 export function Postcards({ className = "" }: { className?: string }) {
   return (
-    <section className={className} aria-labelledby="postcards-title">
+    <section id={ABOUT_ID} className={`scroll-mt-24 ${className}`} aria-labelledby="postcards-title">
       <div className="mx-auto max-w-[640px] px-1">
         <div className="label text-center">Postcards</div>
         <h2 id="postcards-title" className="mt-2 text-center font-serif text-[1.6rem] leading-tight tracking-tight sm:text-[1.9rem]">

@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { site, stats } from "@/lib/site";
-import { AboutModal } from "./AboutModal";
+import { AboutLink } from "./AboutLink";
 import { CampaignHero } from "./FundraisingMeter";
 import { Mark } from "./marks";
 import { Postcards } from "./Postcards";
@@ -78,7 +78,7 @@ export function Letter() {
             <span className="font-serif text-[1.15rem] font-bold text-ink">
               {site.author.name}, Age {site.author.age}
             </span>
-            <AboutModal />
+            <AboutLink />
           </div>
           <div className="mt-1 max-w-[34ch] font-serif text-[1rem] italic text-ink-soft sm:max-w-none">
             <span className="mr-1.5 not-italic" aria-hidden="true">🫀</span>
