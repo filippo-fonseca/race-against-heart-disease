@@ -12,14 +12,14 @@ interface Postcard {
 /** From the robots and the cardio research to the races. Order is the story. */
 const CARDS: Postcard[] = [
   { src: "/gallery/01-lab-night.jpg", w: 675, h: 900, caption: "late nights in the lab", alt: "Filippo in headphones at a desk of monitors in an engineering lab at night" },
-  { src: "/gallery/02-robot-arm.jpg", w: 900, h: 723, caption: "building robot arms", alt: "Filippo assembling a metal robot arm on a workbench full of wiring" },
-  { src: "/gallery/03-robot.jpg", w: 675, h: 900, caption: "robots, up close", alt: "A hand reaching toward a black and orange humanoid robot" },
+  { src: "/gallery/02-robot-arm.jpg", w: 900, h: 723, caption: "mechatronics work", alt: "Filippo assembling a metal robot arm on a workbench full of wiring" },
+  { src: "/gallery/03-robot.jpg", w: 675, h: 900, caption: "i love robots", alt: "A hand reaching toward a black and orange humanoid robot" },
   { src: "/gallery/04-heart-model.jpg", w: 722, h: 900, caption: "mapping the heart", alt: "A monitor showing a hand-drawn diagram of the heart's chambers beside code" },
   { src: "/gallery/05-wet-lab.jpg", w: 595, h: 900, caption: "wet lab days", alt: "Filippo in a blue lab coat and pink gloves working in a biosafety cabinet" },
   { src: "/gallery/06-gloved-up.jpg", w: 671, h: 900, caption: "gloved up", alt: "Filippo in a lab coat giving a thumbs up with a pink glove" },
   { src: "/gallery/07-mgh.jpg", w: 675, h: 900, caption: "summer at Mass General Hospital doing biomedical research", alt: "The Massachusetts General Hospital building against a blue sky" },
   { src: "/gallery/08-suit.jpg", w: 675, h: 900, caption: "suit and badge", alt: "Filippo in a blue suit with a hospital badge giving a thumbs up" },
-  { src: "/gallery/09-half-marathon.jpg", w: 562, h: 900, caption: "Baystate Half, 1:23", alt: "Filippo running a half marathon in a neon shirt, Strava stats overlaid" },
+  { src: "/gallery/09-half-marathon.jpg", w: 562, h: 900, caption: "Baystate Half, 1:23 PR", alt: "Filippo running a half marathon in a neon shirt, Strava stats overlaid" },
   { src: "/gallery/10-finish.jpg", w: 675, h: 900, caption: "medal on + family!", alt: "Filippo wearing a finisher medal after a race, with family beside him" },
   { src: "/gallery/11-paris.jpg", w: 675, h: 900, caption: "Paris, mid-run", alt: "Filippo standing near the Eiffel Tower in running clothes under a cloudy sky" },
   { src: "/gallery/12-bike.jpg", w: 675, h: 900, caption: "indoor miles", alt: "Filippo on an indoor bike in a gym, wearing headphones" },
