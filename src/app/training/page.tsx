@@ -66,9 +66,9 @@ function dayLabel(today: string): string {
 function Header({ today }: { today: string | null }) {
   return (
     <>
-      <header className="rise flex flex-wrap items-end justify-between gap-x-8 gap-y-4" style={step(0)}>
-        <div>
-          <h1 className="flex items-center gap-3 font-serif text-[2.2rem] leading-none tracking-tight sm:text-[2.8rem]">
+      <header className="rise flex flex-col items-center gap-3 text-center" style={step(0)}>
+        <div className="flex flex-col items-center">
+          <h1 className="flex items-center justify-center gap-3 font-serif text-[2.2rem] leading-none tracking-tight sm:text-[2.8rem]">
             <Mark className="h-8 w-8 text-red sm:h-9 sm:w-9" />
             The training
           </h1>
