@@ -15,7 +15,7 @@ const CARDS: Postcard[] = [
   { src: "/gallery/02-robot-arm.jpg", w: 900, h: 723, caption: "mechatronics work", alt: "Filippo assembling a metal robot arm on a workbench full of wiring" },
   { src: "/gallery/03-robot.jpg", w: 675, h: 900, caption: "i love robots", alt: "A hand reaching toward a black and orange humanoid robot" },
   { src: "/gallery/04-heart-model.jpg", w: 722, h: 900, caption: "mapping the heart", alt: "A monitor showing a hand-drawn diagram of the heart's chambers beside code" },
-  { src: "/gallery/05-wet-lab.jpg", w: 595, h: 900, caption: "wet lab days", alt: "Filippo in a blue lab coat and pink gloves working in a biosafety cabinet" },
+  { src: "/gallery/05-wet-lab.jpg", w: 595, h: 900, caption: "feeding heart tissue", alt: "Filippo in a blue lab coat and pink gloves working in a biosafety cabinet" },
   { src: "/gallery/06-gloved-up.jpg", w: 671, h: 900, caption: "gloved up", alt: "Filippo in a lab coat giving a thumbs up with a pink glove" },
   { src: "/gallery/07-mgh.jpg", w: 675, h: 900, caption: "summer at Mass General Hospital doing biomedical research", alt: "The Massachusetts General Hospital building against a blue sky" },
   { src: "/gallery/08-suit.jpg", w: 675, h: 900, caption: "suit and badge", alt: "Filippo in a blue suit with a hospital badge giving a thumbs up" },
