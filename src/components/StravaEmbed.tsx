@@ -75,7 +75,7 @@ export async function StravaEmbed({ className = "" }: { className?: string }) {
 
       <dl className="mt-5 grid grid-cols-4 divide-x divide-white/25 border-t border-white/25">
         <Stat label="Sessions" value={mine.length.toLocaleString()} />
-        <Stat label="Hours" value={fmtHM(totalSec)} />
+        <Stat label="Hours" value={`${fmtHours(totalSec)}h`} />
         <Suspense
           fallback={
             <>
