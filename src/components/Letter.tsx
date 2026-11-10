@@ -54,13 +54,13 @@ export function Letter() {
       </p>
 
       {/* byline */}
-      <div className="rise mt-4 flex flex-col items-center gap-3 text-center sm:flex-row sm:justify-center sm:text-left" style={step(1)}>
+      <div className="rise mt-5 flex flex-col items-center gap-3.5 text-center sm:flex-row sm:justify-center sm:gap-4 sm:text-left" style={step(1)}>
         <Image
           src={site.author.avatar}
           alt={site.author.name}
-          width={56}
-          height={56}
-          className="h-14 w-14 rounded-full border border-rule bg-paper object-cover"
+          width={192}
+          height={192}
+          className="h-20 w-20 rounded-full border border-rule bg-paper object-cover shadow-[0_6px_18px_-8px_rgba(20,20,20,0.35)] sm:h-24 sm:w-24"
           priority
         />
         <div className="leading-tight">
