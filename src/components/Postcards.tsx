@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { site } from "@/lib/site";
+import { ABOUT_ID } from "./AboutLink";
 
 interface Postcard {
   src: string;
@@ -15,10 +16,10 @@ const CARDS: Postcard[] = [
   { src: "/gallery/02-robot-arm.jpg", w: 900, h: 723, caption: "mechatronics work", alt: "Filippo assembling a metal robot arm on a workbench full of wiring" },
   { src: "/gallery/03-robot.jpg", w: 675, h: 900, caption: "i love robots", alt: "A hand reaching toward a black and orange humanoid robot" },
   { src: "/gallery/04-heart-model.jpg", w: 722, h: 900, caption: "mapping the heart", alt: "A monitor showing a hand-drawn diagram of the heart's chambers beside code" },
-  { src: "/gallery/05-wet-lab.jpg", w: 595, h: 900, caption: "wet lab days", alt: "Filippo in a blue lab coat and pink gloves working in a biosafety cabinet" },
+  { src: "/gallery/05-wet-lab.jpg", w: 595, h: 900, caption: "feeding heart tissue", alt: "Filippo in a blue lab coat and pink gloves working in a biosafety cabinet" },
   { src: "/gallery/06-gloved-up.jpg", w: 671, h: 900, caption: "gloved up", alt: "Filippo in a lab coat giving a thumbs up with a pink glove" },
   { src: "/gallery/07-mgh.jpg", w: 675, h: 900, caption: "summer at Mass General Hospital doing biomedical research", alt: "The Massachusetts General Hospital building against a blue sky" },
-  { src: "/gallery/08-suit.jpg", w: 675, h: 900, caption: "suit and badge", alt: "Filippo in a blue suit with a hospital badge giving a thumbs up" },
+  { src: "/gallery/08-suit.jpg", w: 675, h: 900, caption: "hospital work", alt: "Filippo in a blue suit with a hospital badge giving a thumbs up" },
   { src: "/gallery/09-half-marathon.jpg", w: 562, h: 900, caption: "Baystate Half, 1:23 PR", alt: "Filippo running a half marathon in a neon shirt, Strava stats overlaid" },
   { src: "/gallery/10-finish.jpg", w: 675, h: 900, caption: "medal on + family!", alt: "Filippo wearing a finisher medal after a race, with family beside him" },
   { src: "/gallery/11-paris.jpg", w: 675, h: 900, caption: "Paris, mid-run", alt: "Filippo standing near the Eiffel Tower in running clothes under a cloudy sky" },
@@ -36,13 +37,13 @@ const TILT = [-2.2, 1.6, -1, 2.4, -1.8, 1.1, -2.6, 1.9, -1.3, 2.1, -0.8, 1.4, -2
  */
 export function Postcards({ className = "" }: { className?: string }) {
   return (
-    <section className={className} aria-labelledby="postcards-title">
+    <section id={ABOUT_ID} className={`scroll-mt-24 ${className}`} aria-labelledby="postcards-title">
       <div className="mx-auto max-w-[640px] px-1">
         <div className="label text-center">Postcards</div>
         <h2 id="postcards-title" className="mt-2 text-center font-serif text-[1.6rem] leading-tight tracking-tight sm:text-[1.9rem]">
           From building robots to running races
         </h2>
-        <div className="mt-6 space-y-4 font-serif text-[1.12rem] leading-relaxed text-ink">
+        <div className="mt-6 space-y-4 text-justify font-serif text-[1.12rem] leading-relaxed text-ink hyphens-auto">
           {site.author.about.map((p) => (
             <p key={p.slice(0, 24)}>{p}</p>
           ))}

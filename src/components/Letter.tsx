@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { site, stats } from "@/lib/site";
-import { AboutModal } from "./AboutModal";
+import { AboutLink } from "./AboutLink";
 import { CampaignHero } from "./FundraisingMeter";
 import { Mark } from "./marks";
 import { Postcards } from "./Postcards";
@@ -22,18 +22,8 @@ export function Letter() {
       <header className="rise flex flex-col items-center gap-2 text-center" style={step(0)}>
         <Mark className="beat h-12 w-12 text-red sm:h-14 sm:w-14" />
         <div className="font-serif text-[1.25rem] leading-none tracking-tight sm:text-[1.4rem]">{site.name}</div>
-        <div className="mt-1.5 flex flex-col items-center gap-2">
-          <Image
-            src="/ironman-logo.png"
-            alt="IRONMAN"
-            width={960}
-            height={238}
-            className="h-8 w-auto sm:h-10"
-            priority
-          />
-          <div className="label">
-            {site.race.name.replace(/^IRONMAN\s*/i, "")} · {site.race.city}, {site.race.stateAbbr} · {site.race.dateLabel}
-          </div>
+        <div className="label mt-1">
+          {site.race.name} · {site.race.city}, {site.race.stateAbbr} · {site.race.dateLabel}
         </div>
       </header>
 
@@ -78,7 +68,7 @@ export function Letter() {
             <span className="font-serif text-[1.15rem] font-bold text-ink">
               {site.author.name}, Age {site.author.age}
             </span>
-            <AboutModal />
+            <AboutLink />
           </div>
           <div className="mt-1 max-w-[34ch] font-serif text-[1rem] italic text-ink-soft sm:max-w-none">
             <span className="mr-1.5 not-italic" aria-hidden="true">🫀</span>
@@ -110,7 +100,7 @@ export function Letter() {
 
       <div className="mt-14">
         {/* the letter */}
-        <div className="mx-auto max-w-[640px] space-y-6 font-serif text-[1.2rem] leading-[1.6] text-ink sm:text-[1.28rem]">
+        <div className="mx-auto max-w-[640px] space-y-6 text-justify font-serif text-[1.2rem] leading-[1.6] text-ink hyphens-auto sm:text-[1.28rem]">
           <p className="rise dropcap" style={step(2)}>
             For what little attention it gets, I was surprised to find out that
             coronary heart disease is the leading cause of death worldwide.

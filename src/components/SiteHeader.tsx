@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Mark } from "./marks";
+import { NavName } from "./NavName";
 import { SocialIcon } from "./Socials";
 import { site } from "@/lib/site";
 
@@ -32,7 +33,8 @@ export function SiteHeader({ current }: { current: Current }) {
       <div className={`mx-auto flex h-14 ${WIDTH[current]} items-center justify-between rounded-2xl bg-paper/80 pl-3 pr-2.5 shadow-[var(--shadow-surface)] backdrop-blur-xl sm:pl-4 sm:pr-3`}>
         <Link href="/" className="flex items-center gap-2.5" aria-label={site.name}>
           <Mark className="beat h-8 w-8 text-red" />
-          <span className="hidden font-serif text-[16px] font-bold tracking-tight sm:inline">{site.name}</span>
+          {/* The letter shows the name in its own letterhead, so the bar adds it only after the headline scrolls away. */}
+          <NavName name={site.name} revealAfterId={current === "letter" ? "letter-title" : undefined} />
         </Link>
 
         <nav className="flex items-center gap-5 sm:gap-7" aria-label="Site">
