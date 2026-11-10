@@ -53,30 +53,32 @@ export function Letter() {
         In April, I will be <strong className="font-semibold text-ink">racing {site.race.name}</strong> and need your support :)
       </p>
 
-      {/* byline */}
-      <div className="rise mt-5 flex flex-col items-center gap-3.5 text-center sm:flex-row sm:justify-center sm:gap-4 sm:text-left" style={step(1)}>
-        <Image
-          src={site.author.avatar}
-          alt={site.author.name}
-          width={192}
-          height={192}
-          className="h-20 w-20 rounded-full border border-rule bg-paper object-cover shadow-[0_6px_18px_-8px_rgba(20,20,20,0.35)] sm:h-24 sm:w-24"
-          priority
-        />
-        <div className="leading-tight">
-          <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 sm:justify-start">
-            <span className="font-serif text-[1.15rem] font-bold text-ink">
-              {site.author.name}, Age {site.author.age}
-            </span>
-            <AboutLink />
-          </div>
-          <div className="mt-1 max-w-[34ch] font-serif text-[1rem] italic text-ink-soft sm:max-w-none">
-            <span className="mr-1.5 not-italic" aria-hidden="true">🫀</span>
-            {site.author.bio}
+      {/* byline: photo, name, about, bio and socials in one pill (a rounded card on phones) */}
+      <div className="rise mx-auto mt-5 w-fit max-w-full" style={step(1)}>
+        <div className="flex flex-col items-center gap-3.5 rounded-[28px] bg-paper px-5 py-5 text-center shadow-[0_0_0_1px_var(--rule),0_14px_32px_-18px_rgba(20,20,20,0.35)] sm:flex-row sm:gap-5 sm:rounded-full sm:py-2.5 sm:pl-2.5 sm:pr-8 sm:text-left">
+          <Image
+            src={site.author.avatar}
+            alt={site.author.name}
+            width={192}
+            height={192}
+            className="h-20 w-20 shrink-0 rounded-full border border-rule bg-paper object-cover sm:h-24 sm:w-24"
+            priority
+          />
+          <div className="min-w-0 leading-tight">
+            <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 sm:justify-start">
+              <span className="font-serif text-[1.15rem] font-bold text-ink">
+                {site.author.name}, Age {site.author.age}
+              </span>
+              <AboutLink />
+            </div>
+            <div className="mt-1 max-w-[34ch] font-serif text-[1rem] italic text-ink-soft sm:max-w-none">
+              <span className="mr-1.5 not-italic" aria-hidden="true">🫀</span>
+              {site.author.bio}
+            </div>
+            <SocialRow className="mt-2.5 sm:justify-start" size="sm" />
           </div>
         </div>
       </div>
-      <SocialRow className="rise mt-2.5" size="sm" />
 
       {/* the ask, first */}
       <CampaignHero className="rise mt-6" />
