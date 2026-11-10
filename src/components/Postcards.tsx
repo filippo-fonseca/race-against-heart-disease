@@ -24,7 +24,7 @@ const CARDS: Postcard[] = [
   { src: "/gallery/11-paris.jpg", w: 675, h: 900, caption: "Paris, mid-run", alt: "Filippo standing near the Eiffel Tower in running clothes under a cloudy sky" },
   { src: "/gallery/12-bike.jpg", w: 675, h: 900, caption: "indoor miles", alt: "Filippo on an indoor bike in a gym, wearing headphones" },
   { src: "/gallery/13-lift.jpg", w: 821, h: 900, caption: "strength days", alt: "Filippo lifting a barbell in a gym" },
-  { src: "/gallery/14-shoes.jpg", w: 523, h: 900, caption: "shoes on, out the door", alt: "Running shoes on, legs tanned from training" },
+  { src: "/gallery/14-shoes.jpg", w: 523, h: 900, caption: "my true love is running 😅", alt: "Running shoes on, legs tanned from training" },
 ];
 
 /** Small fixed tilts so the stack looks hand-placed but renders the same every time. */
