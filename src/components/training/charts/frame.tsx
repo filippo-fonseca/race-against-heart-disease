@@ -35,8 +35,8 @@ export function ChartFrame({
   className?: string;
 }) {
   return (
-    <figure className={`chart ${className}`} aria-label={label}>
-      <figcaption className="flex items-baseline justify-between gap-3 border-t border-ink pt-2">
+    <figure className={`chart panel px-4 pb-4 pt-3 ${className}`} aria-label={label}>
+      <figcaption className="flex items-baseline justify-between gap-3 border-b border-rule pb-2">
         <span className="label !text-ink">{title}</span>
         {meta ? <span className="label whitespace-nowrap">{meta}</span> : null}
       </figcaption>

@@ -37,7 +37,7 @@ function Figure({
 export function Numerals({ summary, daysToRace }: { summary: TrainingSummary; daysToRace: number }) {
   const hours = Math.floor(summary.totalTimeSec / 3600);
   return (
-    <div className="border-y border-ink py-6">
+    <div className="panel px-4 py-6 sm:px-8">
       <dl className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
         <Figure value={String(daysToRace)} label="Days to IRONMAN Texas" i={2} accent />
         <Figure value={String(hours)} unit="h" label="Trained" i={3} />
