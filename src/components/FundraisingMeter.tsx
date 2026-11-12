@@ -109,7 +109,7 @@ function Figure({ label, children }: { label: string; children: React.ReactNode 
   return (
     <div className="flex flex-col-reverse items-center justify-end gap-2 sm:px-6">
       <dt className="label">{label}</dt>
-      <dd className="num text-[2.4rem] leading-none text-red sm:text-[2.8rem]">{children}</dd>
+      <dd className="num text-[2.4rem] leading-none text-ink sm:text-[2.8rem]">{children}</dd>
     </div>
   );
 }
