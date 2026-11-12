@@ -5,11 +5,13 @@ import { cacheLife } from "next/cache";
  * Live fundraising total from Team IMF's DonorDrive page.
  * DonorDrive exposes a public JSON API per participant, so no scraping:
  *   https://ironmanfoundation.donordrive.com/api/participants/{id}
- * Set DONORDRIVE_PARTICIPANT_ID once registered. Until then we return the
- * goal with zero raised so the meter still renders.
+ * DONORDRIVE_PARTICIPANT_ID (Filippo's is 5303) turns it on. The goal comes
+ * from DonorDrive too, so changing it there updates the site; without the id,
+ * or if the API fails, the meter shows the fallback goal with zero raised.
  */
 
-export const FUNDRAISING_GOAL_USD = 2100;
+/** Fallback goal, used only when DonorDrive is unreachable or not configured. */
+export const FUNDRAISING_GOAL_USD = 2050;
 
 export interface Fundraising {
   raisedUsd: number;
@@ -55,10 +57,11 @@ export async function getFundraising(): Promise<Fundraising> {
     if (!res.ok) return fallback;
     const p = (await res.json()) as DonorDriveParticipant;
     const raised = Number(p.sumDonations ?? 0);
+    const goal = Number(p.fundraisingGoal) > 0 ? Number(p.fundraisingGoal) : FUNDRAISING_GOAL_USD;
     return {
       raisedUsd: raised,
-      goalUsd: FUNDRAISING_GOAL_USD,
-      progress: raised / FUNDRAISING_GOAL_USD,
+      goalUsd: goal,
+      progress: raised / goal,
       donors: typeof p.numDonations === "number" ? p.numDonations : null,
       pageUrl: p.links?.donate ?? p.links?.page ?? null,
       fetchedAt: new Date().toISOString(),
