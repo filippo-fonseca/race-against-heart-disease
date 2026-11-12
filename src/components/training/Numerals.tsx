@@ -48,7 +48,7 @@ export function Numerals({ summary, daysToRace }: { summary: TrainingSummary; da
       <dl className="rise mt-6 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-rule pt-5 sm:grid-cols-4" style={step(7)}>
         {SPORTS.map((s) => (
           <div key={s} className="flex items-center justify-center gap-2.5">
-            <dt>
+            <dt className="flex">
               <SportPill sport={s} />
             </dt>
             <dd className="num text-[1.15rem] leading-none text-ink">{fmtSportTotal(s, summary.bySport[s])}</dd>

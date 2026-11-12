@@ -91,10 +91,11 @@ export async function StravaEmbed({ className = "" }: { className?: string }) {
       </dl>
 
       {/* Per sport, by the site's rule: swim and run by distance, bike and lift by time. */}
-      <dl className="relative grid grid-cols-2 gap-x-4 gap-y-3 border-b border-rule px-5 py-4 sm:grid-cols-4 sm:px-6">
+      {/* Same four columns as the stats above, so each sport sits centered under one of them. */}
+      <dl className="relative grid grid-cols-2 gap-y-3 border-b border-rule py-4 sm:grid-cols-4">
         {SPORTS.map((s) => (
           <div key={s} className="flex items-center justify-center gap-2">
-            <dt>
+            <dt className="flex">
               <SportPill sport={s} />
             </dt>
             <dd className="num whitespace-nowrap text-[0.95rem] leading-none text-ink">{fmtSportTotal(s, bySport[s])}</dd>
