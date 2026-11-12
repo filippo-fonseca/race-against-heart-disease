@@ -97,7 +97,7 @@ export function Letter() {
           href={site.donateUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="pill pill-red !h-14 !gap-3 whitespace-nowrap !px-6 !text-[1.1rem] sm:!px-8 sm:!text-[1.25rem] shadow-[0_12px_30px_-14px_rgba(196,30,58,0.6)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red"
+          className="pill pill-red cta-glow !h-14 !gap-3 whitespace-nowrap !px-6 !text-[1.1rem] sm:!px-8 sm:!text-[1.25rem] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red"
         >
           <Mark className="h-5 w-5" />
           Donate through {site.charity.team}
