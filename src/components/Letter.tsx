@@ -21,6 +21,13 @@ export function Letter() {
       className="sheet relative mx-auto w-full max-w-[960px] px-5 py-8 sm:px-12 sm:py-10 lg:px-16 lg:py-12"
       aria-labelledby="letter-title"
     >
+      {/* Soft blurred glow behind the hero: cool blue into the red accent, warm at the edge. Sits under the dot grid. */}
+      <div aria-hidden="true" className="hero-aura">
+        <span className="hero-aura-blob hero-aura-cool" />
+        <span className="hero-aura-blob hero-aura-red" />
+        <span className="hero-aura-blob hero-aura-warm" />
+      </div>
+
       {/* letterhead */}
       <header className="rise flex flex-col items-center gap-2 text-center" style={step(0)}>
         <Mark className="beat h-12 w-12 text-red sm:h-14 sm:w-14" />

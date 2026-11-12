@@ -246,3 +246,92 @@ body {
     cursor: pointer;
   }
 }
+
+/*
+ * Hero glow on the letter: three blurred colour fields behind the headline,
+ * cool blue meeting the red accent with a warm edge. Positioned at z -15,
+ * between the white page (-20) and the dot grid (-10), so the dots read as a
+ * texture on top of the glow. Fades out downward; drifts slowly unless the
+ * reader prefers reduced motion.
+ */
+.hero-aura {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 640px;
+  z-index: -15;
+  overflow: hidden;
+  border-radius: 16px 16px 0 0;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to bottom, #000 45%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 45%, transparent 100%);
+}
+.hero-aura-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(48px);
+  will-change: transform;
+}
+.hero-aura-cool {
+  width: 46%;
+  height: 300px;
+  left: 4%;
+  top: 70px;
+  background: radial-gradient(closest-side, rgba(70, 160, 255, 0.55), transparent);
+  animation: aura-drift-a 18s ease-in-out infinite alternate;
+}
+.hero-aura-red {
+  width: 44%;
+  height: 280px;
+  left: 30%;
+  top: 150px;
+  background: radial-gradient(closest-side, rgba(255, 60, 120, 0.46), rgba(216, 18, 31, 0.18) 60%, transparent);
+  animation: aura-drift-b 22s ease-in-out infinite alternate;
+}
+.hero-aura-warm {
+  width: 38%;
+  height: 260px;
+  right: 4%;
+  top: 60px;
+  background: radial-gradient(closest-side, rgba(255, 138, 80, 0.5), transparent);
+  animation: aura-drift-c 20s ease-in-out infinite alternate;
+}
+@keyframes aura-drift-a {
+  to {
+    transform: translate(8%, 18px) scale(1.08);
+  }
+}
+@keyframes aura-drift-b {
+  to {
+    transform: translate(-6%, -16px) scale(1.12);
+  }
+}
+@keyframes aura-drift-c {
+  to {
+    transform: translate(-10%, 22px) scale(0.94);
+  }
+}
+@media (max-width: 639px) {
+  .hero-aura {
+    height: 520px;
+  }
+  .hero-aura-blob {
+    filter: blur(40px);
+  }
+  .hero-aura-cool {
+    width: 70%;
+    left: -10%;
+  }
+  .hero-aura-red {
+    width: 70%;
+    left: 15%;
+  }
+  .hero-aura-warm {
+    width: 60%;
+    right: -12%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-aura-blob {
+    animation: none;
+  }
+}
