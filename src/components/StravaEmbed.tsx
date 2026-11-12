@@ -7,7 +7,7 @@ import { totalsBySport } from "@/lib/training/aggregate";
 import { TRAINING_DAYS, TRAINING_START, dayNumber, todayISO, weeksElapsed } from "@/lib/training/dates";
 import { loadTraining, resolveAthlete } from "@/lib/training/load";
 import { SPORTS } from "@/lib/training/types";
-import { fmtHM, fmtHours, fmtKm, fmtSportTotal } from "./training/format";
+import { fmtAgo, fmtHM, fmtHours, fmtKm, fmtSportTotal } from "./training/format";
 import { SportPill } from "./training/SportPill";
 import { SocialIcon } from "./Socials";
 
@@ -119,6 +119,9 @@ export async function StravaEmbed({ className = "" }: { className?: string }) {
                   Latest
                 </span>
                 <SportPill sport={latest.sport} />
+                <Suspense fallback={null}>
+                  <Ago iso={latest.startLocal} />
+                </Suspense>
               </span>
               <span className="mt-1 block font-serif text-[1.02rem] font-semibold leading-snug text-ink group-hover:underline">
                 {latest.name}
@@ -158,6 +161,17 @@ async function TodayStats({ totalSec }: { totalSec: number }) {
       <Stat label={`of ${TRAINING_DAYS}`} value={`Day ${n}`} />
     </>
   );
+}
+
+/** "3h ago" for the latest activity. Reads the clock, so it renders at request time. */
+async function Ago({ iso }: { iso: string }) {
+  await connection();
+  const ago = fmtAgo(iso);
+  return ago ? (
+    <time dateTime={iso} className="label !text-[0.7rem] !normal-case !tracking-[0.02em]">
+      · {ago}
+    </time>
+  ) : null;
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
