@@ -48,17 +48,21 @@ export function Letter() {
         className="rise mx-auto mt-5 max-w-[24ch] text-balance text-center font-serif text-[1.9rem] font-medium leading-[1.1] tracking-tight text-ink sm:max-w-[42ch] sm:text-[2.5rem]"
         style={step(1)}
       >
-        I have joined Team{" "}
-        {/* The wordmark in place of the word: letters sit on the baseline at about cap height. */}
-        <Image
-          src="/ironman-logo.png"
-          alt="IRONMAN"
-          width={960}
-          height={238}
-          className="inline-block h-[1.08em] w-auto align-baseline"
-          priority
-        />{" "}
-        Foundation to help fight{" "}
+        I have joined{" "}
+        <strong className="font-bold">
+          Team{" "}
+          {/* The wordmark in place of the word: letters sit on the baseline at about cap height. */}
+          <Image
+            src="/ironman-logo.png"
+            alt="IRONMAN"
+            width={960}
+            height={238}
+            className="inline-block h-[1.08em] w-auto align-baseline"
+            priority
+          />{" "}
+          Foundation
+        </strong>{" "}
+        to help fight{" "}
         <em className="font-medium text-red">heart disease in youth.</em>
       </h1>
       <p
@@ -169,7 +173,7 @@ export function Letter() {
 
           <div className="rise pt-4 text-center" style={step(7)}>
             <div className="font-serif text-[1.15rem] italic text-ink-soft">
-              With gratitude, and in motion,
+              With gratitude,
             </div>
             <div className="font-hand mt-1 text-[2.8rem] leading-none text-red">
               Filippo
