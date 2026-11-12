@@ -54,7 +54,7 @@ export function Letter() {
           priority
         />{" "}
         Foundation to help fight{" "}
-        <span className="text-red">heart disease in youth.</span>
+        <em className="font-medium text-red">heart disease in youth.</em>
       </h1>
       <p
         className="rise mx-auto mt-3 max-w-[60ch] text-balance text-center font-serif text-[1.15rem] leading-snug text-ink-soft sm:text-[1.3rem]"
