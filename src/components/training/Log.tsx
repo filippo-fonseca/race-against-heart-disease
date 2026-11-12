@@ -60,7 +60,7 @@ function StravaLink({ id, name }: { id: string; name: string }) {
 function ActivityCard({ a }: { a: Activity }) {
   const stats = activityStats(a);
   return (
-    <li className="overflow-hidden rounded-2xl bg-paper shadow-[var(--shadow-surface)]">
+    <li className="activity-card overflow-hidden rounded-2xl bg-paper">
       <article aria-label={a.name} className="px-4 pb-4 pt-4 sm:px-6 sm:pb-5 sm:pt-5">
         <div className="flex items-start gap-2.5">
           <SportPill sport={a.sport} className="mt-[0.35rem]" />

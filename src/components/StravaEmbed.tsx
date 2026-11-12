@@ -7,7 +7,7 @@ import { totalsBySport } from "@/lib/training/aggregate";
 import { TRAINING_DAYS, TRAINING_START, dayNumber, todayISO, weeksElapsed } from "@/lib/training/dates";
 import { loadTraining, resolveAthlete } from "@/lib/training/load";
 import { SPORTS } from "@/lib/training/types";
-import { fmtHM, fmtHours, fmtKm, fmtSportTotal } from "./training/format";
+import { fmtAgo, fmtHM, fmtHours, fmtKm, fmtSportTotal } from "./training/format";
 import { SportPill } from "./training/SportPill";
 import { SocialIcon } from "./Socials";
 
@@ -35,21 +35,25 @@ export async function StravaEmbed({ className = "" }: { className?: string }) {
 
   return (
     <section
-      className={`mx-auto w-full max-w-[560px] overflow-hidden rounded-2xl text-left text-white shadow-[0_18px_40px_-22px_rgba(252,76,2,0.75)] ${className}`}
-      style={{ backgroundColor: STRAVA_ORANGE }}
+      className={`strava-card relative mx-auto w-full max-w-[560px] overflow-hidden rounded-2xl bg-paper text-left ${className}`}
       aria-label="Follow the journey on Strava"
     >
-      <div className="flex items-center justify-between gap-4 px-5 pt-5 sm:px-6">
+      {/* Strava orange is the card's one accent: a soft glow in the corner, the badge, and the Follow button. */}
+      <div aria-hidden="true" className="strava-glow" />
+
+      <div className="relative flex items-center justify-between gap-4 px-5 pt-5 sm:px-6">
         <div className="flex items-center gap-3">
           <span
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white"
-            style={{ color: STRAVA_ORANGE }}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white shadow-[0_6px_16px_-6px_rgba(252,76,2,0.7)]"
+            style={{ backgroundColor: STRAVA_ORANGE }}
           >
             <SocialIcon kind="strava" className="h-5 w-5" />
           </span>
           <div className="leading-tight">
-            <div className="text-[0.72rem] font-bold uppercase tracking-[0.18em] text-white">Strava</div>
-            <div className="font-serif text-[1.25rem]">Follow my journey</div>
+            <div className="label !text-[0.7rem] !tracking-[0.16em]" style={{ color: STRAVA_ORANGE }}>
+              Strava
+            </div>
+            <div className="font-serif text-[1.25rem] text-ink">Follow my journey</div>
           </div>
         </div>
         {profileUrl ? (
@@ -57,23 +61,21 @@ export async function StravaEmbed({ className = "" }: { className?: string }) {
             href={profileUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex h-9 shrink-0 items-center rounded-full bg-white px-4 text-[0.85rem] font-semibold transition-transform active:scale-[0.97]"
-            style={{ color: STRAVA_ORANGE }}
+            className="strava-follow inline-flex h-9 shrink-0 items-center rounded-full px-4 text-[0.85rem] font-semibold text-white"
           >
             Follow ↗
           </a>
         ) : (
           <Link
             href="/training"
-            className="inline-flex h-9 shrink-0 items-center rounded-full bg-white px-4 text-[0.85rem] font-semibold"
-            style={{ color: STRAVA_ORANGE }}
+            className="strava-follow inline-flex h-9 shrink-0 items-center rounded-full px-4 text-[0.85rem] font-semibold text-white"
           >
             Training log →
           </Link>
         )}
       </div>
 
-      <dl className="mt-5 grid grid-cols-4 divide-x divide-white/25 border-t border-white/25">
+      <dl className="relative mt-5 grid grid-cols-4 divide-x divide-rule border-y border-rule">
         <Stat label="Sessions" value={mine.length.toLocaleString()} />
         <Stat label="Hours" value={`${fmtHours(totalSec)}h`} />
         <Suspense
@@ -89,37 +91,52 @@ export async function StravaEmbed({ className = "" }: { className?: string }) {
       </dl>
 
       {/* Per sport, by the site's rule: swim and run by distance, bike and lift by time. */}
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 border-y border-white/25 px-5 py-3.5 sm:grid-cols-4 sm:px-6">
+      <dl className="relative grid grid-cols-2 gap-x-4 gap-y-3 border-b border-rule px-5 py-4 sm:grid-cols-4 sm:px-6">
         {SPORTS.map((s) => (
-          <div key={s} className="flex items-center gap-2">
+          <div key={s} className="flex items-center justify-center gap-2">
             <dt>
-              <SportPill sport={s} onColor />
+              <SportPill sport={s} />
             </dt>
-            <dd className="num text-[0.95rem] leading-none text-white">{fmtSportTotal(s, bySport[s])}</dd>
+            <dd className="num whitespace-nowrap text-[0.95rem] leading-none text-ink">{fmtSportTotal(s, bySport[s])}</dd>
           </div>
         ))}
       </dl>
 
-      <div className="px-5 py-4 text-[0.92rem] sm:px-6">
+      <div className="relative p-3 sm:p-4">
         {latest ? (
-          <Link href="/training" className="group flex items-center gap-3">
+          <Link
+            href="/training"
+            className="group flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-desk sm:px-3"
+          >
             {thumb ? (
-              <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-white/20 ring-1 ring-white">
+              <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-desk ring-1 ring-rule">
                 <Image src={thumb.url} alt={thumb.caption ?? `${latest.name}, photo`} fill sizes="48px" className="object-cover" />
               </span>
             ) : null}
-            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="text-[0.72rem] font-bold uppercase tracking-[0.14em] text-white">Latest</span>
-              <SportPill sport={latest.sport} onColor />
-              <span className="font-semibold group-hover:underline">{latest.name}</span>
-              <span className="text-white">
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2">
+                <span className="label !text-[0.7rem] !tracking-[0.14em]" style={{ color: STRAVA_ORANGE }}>
+                  Latest
+                </span>
+                <SportPill sport={latest.sport} />
+                <Suspense fallback={null}>
+                  <Ago iso={latest.startLocal} />
+                </Suspense>
+              </span>
+              <span className="mt-1 block font-serif text-[1.02rem] font-semibold leading-snug text-ink group-hover:underline">
+                {latest.name}
+              </span>
+              <span className="label mt-1 block !normal-case !tracking-[0.02em]">
                 {fmtHM(latest.movingTimeSec)}
                 {latest.distanceM > 0 ? ` · ${fmtKm(latest.distanceM, latest.sport)} km` : ""} · Day {dayNumber(latest.date)}
               </span>
             </span>
+            <span aria-hidden="true" className="shrink-0 text-ink-faint transition-transform group-hover:translate-x-0.5">
+              →
+            </span>
           </Link>
         ) : (
-          <p className="text-white">
+          <p className="px-2 py-1 font-serif text-ink-soft">
             Every swim, ride, run and lift lands here as it happens, from day one on November 2 to the start line on{" "}
             {site.race.dateLabel}.
           </p>
@@ -146,11 +163,22 @@ async function TodayStats({ totalSec }: { totalSec: number }) {
   );
 }
 
+/** "3h ago" for the latest activity. Reads the clock, so it renders at request time. */
+async function Ago({ iso }: { iso: string }) {
+  await connection();
+  const ago = fmtAgo(iso);
+  return ago ? (
+    <time dateTime={iso} className="label !text-[0.7rem] !normal-case !tracking-[0.02em]">
+      · {ago}
+    </time>
+  ) : null;
+}
+
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col-reverse items-center gap-1 py-3">
-      <dt className="text-[0.62rem] font-bold uppercase tracking-[0.12em] text-white sm:text-[0.68rem] sm:tracking-[0.16em]">{label}</dt>
-      <dd className="num whitespace-nowrap text-[1.3rem] leading-none sm:text-[1.6rem]">{value}</dd>
+    <div className="flex flex-col-reverse items-center gap-1.5 px-1 py-3.5">
+      <dt className="label !text-[0.68rem] sm:!text-[0.75rem]">{label}</dt>
+      <dd className="num whitespace-nowrap text-[1.3rem] leading-none text-ink sm:text-[1.6rem]">{value}</dd>
     </div>
   );
 }

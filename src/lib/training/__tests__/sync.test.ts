@@ -154,3 +154,14 @@ test("updateActivityPhotos retries on a concurrent write and returns null for un
   assert.deepEqual(storedPhotos().map(stravaPhotoId), ["strava-a", "strava-b", "upload-3"]);
   assert.equal(await updateActivityPhotos(999, (p) => p), null);
 });
+
+test("needsDetail re-fetches an activity whose photo count changed on Strava", async () => {
+  const { needsDetail } = await import("../sync");
+  assert.equal(needsDetail(0, undefined), true, "never detailed");
+  assert.equal(needsDetail(undefined, undefined), true, "never detailed, no count in list");
+  assert.equal(needsDetail(0, 0), false, "no photos, unchanged");
+  assert.equal(needsDetail(2, 2), false, "photos, unchanged");
+  assert.equal(needsDetail(3, 0), true, "photos added after upload");
+  assert.equal(needsDetail(1, 2), true, "a photo removed");
+  assert.equal(needsDetail(undefined, 2), false, "list without a count keeps the stored row");
+});

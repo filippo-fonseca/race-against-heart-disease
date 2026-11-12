@@ -3,14 +3,19 @@ import Image from "next/image";
 import Link from "next/link";
 import { site, stats } from "@/lib/site";
 import { AboutLink } from "./AboutLink";
+import { Disclaimer } from "./Disclaimer";
 import { CampaignHero } from "./FundraisingMeter";
 import { Mark } from "./marks";
 import { Postcards } from "./Postcards";
 import { SocialIcon, SocialRow, liveSocials } from "./Socials";
 import { StravaEmbed } from "./StravaEmbed";
+import { sportFill } from "./training/charts/frame";
 
 /** Stagger index for the `.rise` animation. */
 const step = (i: number) => ({ "--i": i }) as CSSProperties;
+
+/** Route bar colours: the training log's sport palette (sportFill). */
+const LEG_FILL: Record<string, string> = { Swim: sportFill.swim, Bike: sportFill.bike, Run: sportFill.run };
 
 /** Anchor for the letter itself, linked from the hero ("Read the letter"). */
 const LETTER_ID = "letter";
@@ -21,6 +26,13 @@ export function Letter() {
       className="sheet relative mx-auto w-full max-w-[960px] px-5 py-8 sm:px-12 sm:py-10 lg:px-16 lg:py-12"
       aria-labelledby="letter-title"
     >
+      {/* Soft blurred glow behind the hero: cool blue into the red accent, warm at the edge. Sits under the dot grid. */}
+      <div aria-hidden="true" className="hero-aura">
+        <span className="hero-aura-blob hero-aura-cool" />
+        <span className="hero-aura-blob hero-aura-red" />
+        <span className="hero-aura-blob hero-aura-warm" />
+      </div>
+
       {/* letterhead */}
       <header className="rise flex flex-col items-center gap-2 text-center" style={step(0)}>
         <Mark className="beat h-12 w-12 text-red sm:h-14 sm:w-14" />
@@ -36,18 +48,22 @@ export function Letter() {
         className="rise mx-auto mt-5 max-w-[24ch] text-balance text-center font-serif text-[1.9rem] font-medium leading-[1.1] tracking-tight text-ink sm:max-w-[42ch] sm:text-[2.5rem]"
         style={step(1)}
       >
-        I have joined Team{" "}
-        {/* The wordmark in place of the word: letters sit on the baseline at about cap height. */}
-        <Image
-          src="/ironman-logo.png"
-          alt="IRONMAN"
-          width={960}
-          height={238}
-          className="inline-block h-[1.08em] w-auto align-baseline"
-          priority
-        />{" "}
-        Foundation to help fight{" "}
-        <span className="text-red">heart disease in youth.</span>
+        I have joined{" "}
+        <strong className="font-bold">
+          Team{" "}
+          {/* The wordmark in place of the word: letters sit on the baseline at about cap height. */}
+          <Image
+            src="/ironman-logo.png"
+            alt="IRONMAN"
+            width={960}
+            height={238}
+            className="inline-block h-[1.08em] w-auto align-baseline"
+            priority
+          />{" "}
+          Foundation
+        </strong>{" "}
+        to help fight{" "}
+        <em className="font-medium text-red">heart disease in youth.</em>
       </h1>
       <p
         className="rise mx-auto mt-3 max-w-[60ch] text-balance text-center font-serif text-[1.15rem] leading-snug text-ink-soft sm:text-[1.3rem]"
@@ -90,7 +106,7 @@ export function Letter() {
           href={site.donateUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="pill pill-red !h-14 !gap-3 whitespace-nowrap !px-6 !text-[1.1rem] sm:!px-8 sm:!text-[1.25rem] shadow-[0_12px_30px_-14px_rgba(196,30,58,0.6)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red"
+          className="pill pill-red cta-glow !h-14 !gap-3 whitespace-nowrap !px-6 !text-[1.1rem] sm:!px-8 sm:!text-[1.25rem] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red"
         >
           <Mark className="h-5 w-5" />
           Donate through {site.charity.team}
@@ -157,7 +173,7 @@ export function Letter() {
 
           <div className="rise pt-4 text-center" style={step(7)}>
             <div className="font-serif text-[1.15rem] italic text-ink-soft">
-              With gratitude, and in motion,
+              With gratitude,
             </div>
             <div className="font-hand mt-1 text-[2.8rem] leading-none text-red">
               Filippo
@@ -188,12 +204,12 @@ export function Letter() {
               href={site.donateUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="pill pill-red focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red"
+              className="pill pill-red cta-glow !h-12 !px-6 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red"
             >
               <Mark className="h-5 w-5" />
               Give through {site.charity.team}
             </a>
-            <Link href="/training" className="pill pill-ghost">
+            <Link href="/training" className="pill pill-ghost !h-12 !px-6">
               Follow the training
             </Link>
           </div>
@@ -213,13 +229,13 @@ export function Letter() {
       {/* the figures behind the argument */}
       <section className="rise mt-20" style={step(10)} aria-label="Campaign figures">
         <div className="label text-center">Why it matters</div>
-        <dl className="mt-8 flex flex-wrap justify-center gap-y-10">
+        <dl className="mt-8 flex flex-wrap justify-center gap-4">
           {stats.map((s) => (
             <div
               key={s.value + s.sourceLabel}
-              className="flex w-full flex-col items-center px-6 text-center sm:w-1/2 lg:w-1/3"
+              className="stat-card flex w-full flex-col items-center rounded-2xl bg-paper px-6 py-7 text-center sm:w-[calc(50%-0.5rem)] lg:w-[calc(33.333%-0.7rem)]"
             >
-              <dt className="num text-[2.6rem] leading-none text-red">{s.value}</dt>
+              <dt className="num text-[2.4rem] leading-none text-ink">{s.value}</dt>
               <dd className="mt-3 max-w-[18rem] font-serif text-[1rem] leading-snug text-ink-soft">
                 {s.label}{" "}
                 <a
@@ -244,19 +260,19 @@ export function Letter() {
         </div>
         <div className="mt-3 flex items-start gap-1">
           {site.race.legs.map((leg) => (
-            <div
-              key={leg.label}
-              className="relative min-w-[5.5rem] border-t-2 border-ink pt-2"
-              style={{ flexGrow: leg.miles }}
-            >
-              <div className="label !text-ink">{leg.label}</div>
+            <div key={leg.label} className="relative min-w-[5.5rem]" style={{ flexGrow: leg.miles }}>
+              {/* Each leg in its sport colour, the same palette as the training log. */}
+              <div className="h-2 rounded-full" style={{ background: LEG_FILL[leg.label] }} />
+              <div className="label mt-2 !text-ink">{leg.label}</div>
               <div className="label">{leg.miles} mi</div>
             </div>
           ))}
         </div>
       </section>
 
-      <footer className="rise mt-16 flex flex-col items-center gap-3 border-t border-rule pt-6 text-center sm:flex-row sm:justify-between" style={step(12)}>
+      <Disclaimer className="rise mt-16" />
+
+      <footer className="rise mt-8 flex flex-col items-center gap-3 border-t border-rule pt-6 text-center sm:flex-row sm:justify-between" style={step(12)}>
         <span className="label">
           Postmarked {site.race.city}, {site.race.stateAbbr} · {site.race.postmarkDate}
         </span>

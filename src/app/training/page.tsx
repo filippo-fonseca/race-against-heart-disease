@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense, type CSSProperties } from "react";
 import { Mark } from "@/components/marks";
+import { Disclaimer } from "@/components/Disclaimer";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ChartRail } from "@/components/training/ChartRail";
 import { DayJump } from "@/components/training/DayJump";
@@ -30,7 +32,7 @@ import type { Activity } from "@/lib/training/types";
 import "./training.css";
 
 export const metadata: Metadata = {
-  title: "The training",
+  title: "My training log",
   description: `Every swim, ride, run and lift on the way to ${site.race.name}, synced from Strava, with the charts that add it up.`,
 };
 
@@ -66,17 +68,38 @@ function dayLabel(today: string): string {
 function Header({ today }: { today: string | null }) {
   return (
     <>
+      {/* Same blurred glow as the letter's hero, shorter. */}
+      <div aria-hidden="true" className="hero-aura hero-aura--compact">
+        <span className="hero-aura-blob hero-aura-cool" />
+        <span className="hero-aura-blob hero-aura-red" />
+        <span className="hero-aura-blob hero-aura-warm" />
+      </div>
       <header className="rise flex flex-col items-center gap-3 text-center" style={step(0)}>
-        <div className="flex flex-col items-center">
-          <h1 className="flex items-center justify-center gap-3 font-serif text-[2.2rem] leading-none tracking-tight sm:text-[2.8rem]">
-            <Mark className="h-8 w-8 text-red sm:h-9 sm:w-9" />
-            The training
-          </h1>
-          <div className="label mt-3">
-            {site.race.name} · {site.race.dateLabel}
-          </div>
+        <h1 className="flex items-center justify-center gap-3 font-serif text-[2.2rem] leading-none tracking-tight sm:text-[2.8rem]">
+          <Mark className="h-8 w-8 text-red sm:h-9 sm:w-9" />
+          <span>
+            My <em className="text-red">training log</em>
+          </span>
+        </h1>
+        <Image
+          src="/ironman-703-texas.png"
+          alt={site.race.name}
+          width={964}
+          height={415}
+          className="mt-2 h-14 w-auto sm:h-20"
+          priority
+        />
+        <div className="label flex flex-wrap justify-center gap-x-1.5 gap-y-1">
+          <span className="whitespace-nowrap">
+            {site.race.city}, {site.race.stateAbbr} · {site.race.dateLabel}
+          </span>
+          {today ? (
+            <span className="whitespace-nowrap !text-ink">
+              <span className="hidden sm:inline">· </span>
+              {dayLabel(today)}
+            </span>
+          ) : null}
         </div>
-        <span className="label !text-ink">{today ? dayLabel(today) : " "}</span>
       </header>
       <div className="rise mt-6 h-px w-full bg-red" style={step(1)} />
     </>
@@ -177,7 +200,8 @@ export default function TrainingPage({ searchParams }: { searchParams: Promise<S
           <Suspense fallback={<Header today={null} />}>
             <Body searchParams={searchParams} />
           </Suspense>
-          <footer className="mt-16 flex flex-wrap items-center justify-between gap-3 border-t border-rule pt-5">
+          <Disclaimer className="mt-16" />
+          <footer className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-rule pt-5">
             <span className="label">
               Postmarked {site.race.city}, {site.race.stateAbbr} · {site.race.postmarkDate}
             </span>

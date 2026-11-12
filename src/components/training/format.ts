@@ -101,3 +101,22 @@ export function fmtSportTotal(sport: SportBucket, t: { timeSec: number; distance
   if (sport === "swim" || sport === "run") return `${fmtKm(t.distanceM, sport)} km`;
   return fmtHM(t.timeSec);
 }
+
+/**
+ * Relative time for an ISO timestamp with offset: "just now", "12m ago",
+ * "3h ago", "yesterday", "4 days ago", then a short date past two weeks.
+ */
+export function fmtAgo(iso: string, now: Date = new Date()): string {
+  const then = new Date(iso);
+  const sec = Math.round((now.getTime() - then.getTime()) / 1000);
+  if (!Number.isFinite(sec)) return "";
+  if (sec < 60) return "just now";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const days = Math.floor(hr / 24);
+  if (days === 1) return "yesterday";
+  if (days < 14) return `${days} days ago`;
+  return shortDate.format(then);
+}
