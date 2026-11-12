@@ -20,23 +20,19 @@ const pillText: Record<SportBucket, string> = {
 /**
  * Compact rounded pill naming the sport: SWIM, BIKE, RUN or LIFT. Colors match
  * the chart palette (sportFill), so a pill in the log reads like its bar in the
- * rail. `onColor` adds a white ring for colored surfaces such as the Strava card.
+ * rail.
  */
 export function SportPill({
   sport,
-  onColor = false,
   className = "",
 }: {
   sport: Sport;
-  onColor?: boolean;
   className?: string;
 }) {
   const b = bucketOf(sport);
   return (
     <span
-      className={`inline-flex h-[1.15rem] shrink-0 items-center rounded-full px-[0.45rem] font-mono text-[0.62rem] font-bold leading-none tracking-[0.1em] ${
-        onColor ? "ring-1 ring-white" : ""
-      } ${className}`}
+      className={`inline-flex h-[1.15rem] shrink-0 items-center rounded-full px-[0.45rem] font-mono text-[0.62rem] font-bold leading-none tracking-[0.1em] ${className}`}
       style={{ background: sportFill[b], color: pillText[b] }}
     >
       {pillLabel[b]}
