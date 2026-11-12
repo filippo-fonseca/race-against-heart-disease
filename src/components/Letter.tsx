@@ -8,9 +8,13 @@ import { Mark } from "./marks";
 import { Postcards } from "./Postcards";
 import { SocialIcon, SocialRow, liveSocials } from "./Socials";
 import { StravaEmbed } from "./StravaEmbed";
+import { sportFill } from "./training/charts/frame";
 
 /** Stagger index for the `.rise` animation. */
 const step = (i: number) => ({ "--i": i }) as CSSProperties;
+
+/** Route bar colours: the training log's sport palette (sportFill). */
+const LEG_FILL: Record<string, string> = { Swim: sportFill.swim, Bike: sportFill.bike, Run: sportFill.run };
 
 /** Anchor for the letter itself, linked from the hero ("Read the letter"). */
 const LETTER_ID = "letter";
@@ -195,12 +199,12 @@ export function Letter() {
               href={site.donateUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="pill pill-red focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red"
+              className="pill pill-red cta-glow !h-12 !px-6 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red"
             >
               <Mark className="h-5 w-5" />
               Give through {site.charity.team}
             </a>
-            <Link href="/training" className="pill pill-ghost">
+            <Link href="/training" className="pill pill-ghost !h-12 !px-6">
               Follow the training
             </Link>
           </div>
@@ -220,13 +224,13 @@ export function Letter() {
       {/* the figures behind the argument */}
       <section className="rise mt-20" style={step(10)} aria-label="Campaign figures">
         <div className="label text-center">Why it matters</div>
-        <dl className="mt-8 flex flex-wrap justify-center gap-y-10">
+        <dl className="mt-8 flex flex-wrap justify-center gap-4">
           {stats.map((s) => (
             <div
               key={s.value + s.sourceLabel}
-              className="flex w-full flex-col items-center px-6 text-center sm:w-1/2 lg:w-1/3"
+              className="stat-card flex w-full flex-col items-center rounded-2xl bg-paper px-6 py-7 text-center sm:w-[calc(50%-0.5rem)] lg:w-[calc(33.333%-0.7rem)]"
             >
-              <dt className="num text-[2.6rem] leading-none text-red">{s.value}</dt>
+              <dt className="num text-[2.4rem] leading-none text-ink">{s.value}</dt>
               <dd className="mt-3 max-w-[18rem] font-serif text-[1rem] leading-snug text-ink-soft">
                 {s.label}{" "}
                 <a
@@ -251,12 +255,10 @@ export function Letter() {
         </div>
         <div className="mt-3 flex items-start gap-1">
           {site.race.legs.map((leg) => (
-            <div
-              key={leg.label}
-              className="relative min-w-[5.5rem] border-t-2 border-ink pt-2"
-              style={{ flexGrow: leg.miles }}
-            >
-              <div className="label !text-ink">{leg.label}</div>
+            <div key={leg.label} className="relative min-w-[5.5rem]" style={{ flexGrow: leg.miles }}>
+              {/* Each leg in its sport colour, the same palette as the training log. */}
+              <div className="h-2 rounded-full" style={{ background: LEG_FILL[leg.label] }} />
+              <div className="label mt-2 !text-ink">{leg.label}</div>
               <div className="label">{leg.miles} mi</div>
             </div>
           ))}
