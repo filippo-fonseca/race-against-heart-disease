@@ -22,11 +22,11 @@ npm install
 npm run dev
 ```
 
-Set the fundraising link before deploying:
+The donate buttons point at the Team IMF fundraising page set in `src/lib/site.ts`. To point them elsewhere without a code change, set:
 
 ```bash
 # .env.local
-NEXT_PUBLIC_DONATE_URL=https://ironmanfoundation.donordrive.com/participant/...
+NEXT_PUBLIC_DONATE_URL=https://ironmanfoundation.donordrive.com/participants/filippofonseca
 ```
 
 Everything editable (copy, dates, links, the cited stats) lives in [`src/lib/site.ts`](src/lib/site.ts).

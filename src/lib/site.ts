@@ -56,9 +56,10 @@ export const site = {
     ] as { kind: "website" | "strava" | "github" | "linkedin" | "x" | "scholar"; label: string; href: string }[],
   },
   repo: "https://github.com/filippo-fonseca/race-against-heart-disease",
-  /** Team IMF personal fundraising page. Set NEXT_PUBLIC_DONATE_URL in Vercel. */
+  /** Team IMF personal fundraising page. NEXT_PUBLIC_DONATE_URL overrides it if set. */
   donateUrl:
-    process.env.NEXT_PUBLIC_DONATE_URL ?? "https://www.ironmanfoundation.org/",
+    process.env.NEXT_PUBLIC_DONATE_URL ??
+    "https://ironmanfoundation.donordrive.com/participants/filippofonseca",
   charity: {
     name: "The IRONMAN Foundation",
     team: "Team IMF",
