@@ -137,21 +137,41 @@ export async function syncActivity(athlete: AthleteRow, id: number | string): Pr
   return activity;
 }
 
-async function loadDetailedIds(ids: number[]): Promise<Set<number>> {
-  if (ids.length === 0) return new Set();
+/**
+ * Photo count Strava reported when each already-detailed activity was last
+ * fetched, keyed by id. Activities missing from the map were never detailed.
+ */
+async function loadDetailedPhotoCounts(ids: number[]): Promise<Map<number, number>> {
+  if (ids.length === 0) return new Map();
   const { data, error } = await db()
     .from("activities")
-    .select("id")
+    .select("id, total_photo_count:raw->total_photo_count")
     .in("id", ids)
     .eq("detailed", true);
   if (error) throw error;
-  return new Set((data ?? []).map((r) => Number((r as { id: number }).id)));
+  const out = new Map<number, number>();
+  for (const r of (data ?? []) as { id: number; total_photo_count: unknown }[]) {
+    out.set(Number(r.id), Number(r.total_photo_count ?? 0) || 0);
+  }
+  return out;
+}
+
+/**
+ * Whether a listed activity needs the detail + photos calls. Strava sends no
+ * webhook when photos are added after upload, so a detailed activity is
+ * fetched again whenever the list's photo count differs from the stored one.
+ */
+export function needsDetail(summaryPhotoCount: number | undefined, storedPhotoCount: number | undefined): boolean {
+  if (storedPhotoCount === undefined) return true;
+  if (summaryPhotoCount === undefined) return false;
+  return summaryPhotoCount !== storedPhotoCount;
 }
 
 /**
  * Pull every activity since `since` for one athlete. Listing costs one
- * request per 100 activities; each not-yet-detailed activity costs one or two
- * more (detail, then photos if there are any). `budget` caps the number of
+ * request per 100 activities; each activity that is not yet detailed, or
+ * whose photo count changed on Strava since it was, costs one or two more
+ * (detail, then photos if there are any). `budget` caps the number of
  * activities enriched per run so two athletes on a 30-minute cron stay well
  * under Strava's 100 requests / 15 minutes. Anything left over is stored as a
  * summary (`detailed=false`) and picked up by the next run.
@@ -179,10 +199,10 @@ export async function syncAthlete(
     if (summaries.length === 0) break;
     stats.listed += summaries.length;
 
-    const alreadyDetailed = await loadDetailedIds(summaries.map((s) => s.id));
+    const storedPhotos = await loadDetailedPhotoCounts(summaries.map((s) => s.id));
 
     for (const summary of summaries) {
-      if (alreadyDetailed.has(summary.id)) {
+      if (!needsDetail(summary.total_photo_count, storedPhotos.get(summary.id))) {
         stats.skipped++;
         continue;
       }
