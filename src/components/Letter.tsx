@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { site, stats } from "@/lib/site";
 import { AboutLink } from "./AboutLink";
+import { Disclaimer } from "./Disclaimer";
 import { CampaignHero } from "./FundraisingMeter";
 import { Mark } from "./marks";
 import { Postcards } from "./Postcards";
@@ -265,7 +266,9 @@ export function Letter() {
         </div>
       </section>
 
-      <footer className="rise mt-16 flex flex-col items-center gap-3 border-t border-rule pt-6 text-center sm:flex-row sm:justify-between" style={step(12)}>
+      <Disclaimer className="rise mt-16" />
+
+      <footer className="rise mt-8 flex flex-col items-center gap-3 border-t border-rule pt-6 text-center sm:flex-row sm:justify-between" style={step(12)}>
         <span className="label">
           Postmarked {site.race.city}, {site.race.stateAbbr} · {site.race.postmarkDate}
         </span>
