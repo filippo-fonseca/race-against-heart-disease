@@ -51,7 +51,7 @@ The race is the demonstration. The message is prevention. Coronary heart disease
 - **Live fundraising.** The total, goal and donor count come straight from DonorDrive's public API and refresh every 10 minutes.
 - **A Grok bot that logs training.** `/api/mcp` is a remote MCP server with 10 tools: overview, fundraising, list, log, update and delete activities, resync, and photo management. It writes to Strava, never directly to the database.
 - **One accent colour.** A calm black and white page, with red reserved for the call to action and the headline, a soft gradient glow behind the hero, and a dot grid that parts around the cursor.
-- **Respectful by default.** No tracking, no cookies, no analytics beyond the host's. and `prefers-reduced-motion` stills every animation.
+- **Respectful by default.** No tracking, no cookies and no analytics beyond the host's. `prefers-reduced-motion` stills every animation.
 
 ## How it works
 
