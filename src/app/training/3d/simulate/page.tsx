@@ -30,6 +30,7 @@ async function Scene({ searchParams }: { searchParams: Promise<SearchParams> }) 
   return (
     <>
       <nav className="flex flex-wrap items-center justify-center gap-2" aria-label="Simulate a day">
+        <span className="label mr-1">Pretend today is</span>
         {STOPS.map((s) => (
           <Link
             key={s}
@@ -40,7 +41,7 @@ async function Scene({ searchParams }: { searchParams: Promise<SearchParams> }) 
           </Link>
         ))}
       </nav>
-      <div className="mt-4">
+      <div className="mt-6">
         <Skyline3D key={day} days={days} variant="hero" />
       </div>
     </>
