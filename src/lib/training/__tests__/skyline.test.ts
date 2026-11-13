@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildSkyline, totalMinutes } from "../../../components/training/skyline";
+import { buildSkyline, pickCallouts, totalMinutes } from "../../../components/training/skyline";
 import { activity } from "./fixtures";
 
 test("buildSkyline lays every day on a week x weekday grid with minutes per sport", () => {
@@ -23,4 +23,20 @@ test("buildSkyline lays every day on a week x weekday grid with minutes per spor
   assert.equal(days[7].when, "past");
   assert.equal(days[9].when, "future");
   assert.deepEqual([days[153].week, days[153].weekday], [21, 6], "race day is the last Sunday");
+});
+
+test("pickCallouts favours days with photos and never picks empty days", () => {
+  const acts = [
+    activity({ date: "2026-11-02", sport: "run", startLocal: "2026-11-02T06:00:00-06:00" }),
+    activity({ date: "2026-11-03", sport: "bike", startLocal: "2026-11-03T06:00:00-06:00", photos: [{ id: "p", url: "https://x/p.jpg", width: null, height: null, caption: null }] }),
+    activity({ date: "2026-11-05", sport: "swim", startLocal: "2026-11-05T06:00:00-06:00" }),
+  ];
+  const days = buildSkyline({ activities: acts, start: "2026-11-02", totalDays: 154, today: "2026-11-10", links: new Map() });
+  assert.equal(days[1].photo?.url, "https://x/p.jpg");
+  let seed = 0.42;
+  const rand = () => (seed = (seed * 9301 + 49297) % 233280 / 233280);
+  const one = pickCallouts(days, 1, rand);
+  assert.deepEqual(one, [1], "the photo day comes first");
+  const all = pickCallouts(days, 5, rand);
+  assert.deepEqual(all, [0, 1, 3], "only trained days, in day order");
 });
