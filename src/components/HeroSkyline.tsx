@@ -20,7 +20,6 @@ export function HeroSkyline({ className = "" }: { className?: string }) {
         <h2 className="font-serif text-[1.8rem] font-medium leading-tight tracking-tight text-ink sm:text-[2.3rem]">
           My method? Stacking days, <em className="text-red">literally</em> :)
         </h2>
-        <span className="label">Every day of training, live from Strava · drag to look around · hover a day</span>
       </div>
       <div className="-mx-5 mt-2 sm:-mx-12 lg:-mx-16">
         <Suspense fallback={<div className="h-[460px] sm:h-[560px]" />}>
