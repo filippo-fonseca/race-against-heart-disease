@@ -1,12 +1,14 @@
 "use client";
 
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { SportBucket } from "@/lib/training/types";
 import { fmtDay, fmtHM } from "./format";
-import { pillLabel } from "./SportPill";
+import { SportPill, pillLabel } from "./SportPill";
 import type { SkylineDay } from "./skyline";
-import { totalMinutes } from "./skyline";
+import { WEEKDAY_LABELS, pickCallouts, totalMinutes } from "./skyline";
 
 /** Stack order, bottom to top, and the chart palette (sportFill, resolved for WebGL). */
 const STACK: SportBucket[] = ["swim", "bike", "run", "strength"];
@@ -21,25 +23,45 @@ const UNITS_PER_MIN = 3 / 150;
 const MAX_HEIGHT = 7;
 const TILE = 0.82;
 
+/** Where the callout cards sit over the scene. The third shows from sm up only. */
+const SLOTS = [
+  "left-2 top-2 sm:left-3 sm:top-3",
+  "right-2 top-2 sm:right-3 sm:top-3",
+  "hidden sm:block right-3 bottom-4",
+];
+
 interface Hover {
   day: SkylineDay;
   x: number;
   y: number;
 }
 
+type Variant = "page" | "hero";
+
 /**
- * The training skyline: every day of the window as a tile on a 22 x 7 grid
- * (weeks by weekdays). Trained days rise as towers stacked by sport, height by
- * minutes; future days are faint tiles; race day is a red beacon at the end.
- * three.js loads only here, on the client. Drag to orbit, scroll to zoom,
- * hover for the day's sessions, click to open that day in the log. Reduced
- * motion: no auto-rotate and no rise-in.
+ * The training skyline: every day of the window as a tile on a weeks x
+ * weekdays grid. Trained days rise as towers stacked by sport, height by
+ * minutes; future days are faint tiles; race day is a red beacon. A few
+ * trained days get callout cards (their photo, sport and session) with arrows
+ * that track the towers as the scene turns.
+ *
+ * three.js loads only here, on the client, and the loop pauses while the
+ * scene is off screen. "hero" (the letter) turns off scroll-zoom so the page
+ * scrolls normally and lets vertical swipes scroll on touch screens; "page"
+ * (/training/3d) allows zoom. Reduced motion: no auto-orbit, no rise-in.
  */
-export function Skyline3D({ days }: { days: SkylineDay[] }) {
+export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; variant?: Variant }) {
   const mount = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const markerId = useId().replace(/:/g, "");
   const [hover, setHover] = useState<Hover | null>(null);
   const [failed, setFailed] = useState(false);
+  // Picked once the scene loads (see the effect): random choices must not run during the server render.
+  const [callouts, setCallouts] = useState<number[]>([]);
+  const calloutsRef = useRef<number[]>([]);
+  const cardRefs = useRef<(HTMLElement | null)[]>([]);
+  const pathRefs = useRef<(SVGPathElement | null)[]>([]);
+  const dotRefs = useRef<(SVGCircleElement | null)[]>([]);
 
   useEffect(() => {
     const el = mount.current;
@@ -61,6 +83,11 @@ export function Skyline3D({ days }: { days: SkylineDay[] }) {
         return;
       }
       const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const hero = variant === "hero";
+      // Callouts are random, so they are picked here in the browser, never during the server render.
+      const picked = pickCallouts(days, SLOTS.length);
+      calloutsRef.current = picked;
+      setCallouts(picked);
 
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer.shadowMap.enabled = true;
@@ -70,7 +97,8 @@ export function Skyline3D({ days }: { days: SkylineDay[] }) {
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       el.appendChild(renderer.domElement);
       renderer.domElement.style.display = "block";
-      renderer.domElement.style.touchAction = "none";
+      // In the hero, let vertical swipes scroll the page; horizontal drags still orbit.
+      renderer.domElement.style.touchAction = hero ? "pan-y" : "none";
 
       const scene = new THREE.Scene();
       const weeks = Math.max(...days.map((d) => d.week)) + 1;
@@ -78,7 +106,7 @@ export function Skyline3D({ days }: { days: SkylineDay[] }) {
       const cz = 3;
 
       const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 200);
-      // Open from the front-left, looking along the weeks toward race day, far enough back to frame the whole grid.
+      // Open from the front-left, looking along the weeks toward race day.
       camera.position.set(-9, 15, 25);
 
       // Light: soft sky fill plus a warm key from the upper left that casts shadows.
@@ -121,8 +149,10 @@ export function Skyline3D({ days }: { days: SkylineDay[] }) {
       const todayTile = mat("#141414");
 
       const pickables: InstanceType<typeof THREE.Mesh>[] = [];
-      const groups: { group: InstanceType<typeof THREE.Group>; delay: number; day: SkylineDay }[] = [];
+      const groups: { group: InstanceType<typeof THREE.Group>; delay: number }[] = [];
       const dayMeshes = new Map<number, InstanceType<typeof THREE.Mesh>[]>();
+      /** Per day: tile centre and full tower height, so callouts can find the top. */
+      const anchors = new Map<number, { x: number; z: number; h: number; group: InstanceType<typeof THREE.Group> | null }>();
 
       days.forEach((d, i) => {
         const x = d.week - cx;
@@ -136,10 +166,11 @@ export function Skyline3D({ days }: { days: SkylineDay[] }) {
         const meshes: InstanceType<typeof THREE.Mesh>[] = [tile];
 
         const total = totalMinutes(d);
+        let group: InstanceType<typeof THREE.Group> | null = null;
+        let y = 0;
         if (total > 0) {
-          const group = new THREE.Group();
+          group = new THREE.Group();
           group.position.set(x, 0.08, z);
-          let y = 0;
           const scale = Math.min(1, MAX_HEIGHT / (total * UNITS_PER_MIN));
           for (const s of STACK) {
             const h = d.minutes[s] * UNITS_PER_MIN * scale;
@@ -157,8 +188,9 @@ export function Skyline3D({ days }: { days: SkylineDay[] }) {
           }
           if (!reduced) group.scale.y = 0.0001;
           scene.add(group);
-          groups.push({ group, delay: i * 18, day: d });
+          groups.push({ group, delay: i * 18 });
         }
+        anchors.set(i, { x, z, h: y, group });
         dayMeshes.set(i, meshes);
       });
 
@@ -174,7 +206,7 @@ export function Skyline3D({ days }: { days: SkylineDay[] }) {
       cap.position.set(race.week - cx, 4.4, race.weekday - cz);
       scene.add(cap);
 
-      // Text labels as canvas sprites (month names along the front edge, race day above the beacon).
+      // Text labels as canvas sprites: months along the front, weekdays down the side, race day above the beacon.
       const textures: InstanceType<typeof THREE.Texture>[] = [];
       const label = (text: string, color: string, scale: number) => {
         const c = document.createElement("canvas");
@@ -206,6 +238,11 @@ export function Skyline3D({ days }: { days: SkylineDay[] }) {
         s.position.set(d.week - cx + 0.5, 0.42, 3 - cz + 1.45);
         scene.add(s);
       }
+      WEEKDAY_LABELS.forEach((name, row) => {
+        const s = label(name, "#737373", 0.38);
+        s.position.set(-cx - 1.35, 0.3, row - cz);
+        scene.add(s);
+      });
       const raceLabel = label("RACE DAY", "#d8121f", 0.5);
       raceLabel.position.set(race.week - cx, 5.15, race.weekday - cz);
       scene.add(raceLabel);
@@ -215,25 +252,29 @@ export function Skyline3D({ days }: { days: SkylineDay[] }) {
       controls.enableDamping = true;
       controls.dampingFactor = 0.08;
       controls.enablePan = false;
+      controls.enableZoom = !hero;
       controls.minDistance = 10;
       controls.maxDistance = 46;
       controls.minPolarAngle = 0.25;
       controls.maxPolarAngle = Math.PI / 2.15;
       controls.autoRotate = !reduced;
-      controls.autoRotateSpeed = 0.55;
+      controls.autoRotateSpeed = hero ? 0.4 : 0.55;
       controls.update();
       const baseDistance = camera.position.distanceTo(controls.target);
 
+      let width = 1;
+      let height = 1;
       const resize = () => {
-        const w = el.clientWidth;
-        const h = el.clientHeight;
-        renderer.setSize(w, h, false);
-        renderer.domElement.style.width = `${w}px`;
-        renderer.domElement.style.height = `${h}px`;
-        camera.aspect = w / Math.max(h, 1);
+        width = el.clientWidth;
+        height = el.clientHeight;
+        renderer.setSize(width, height, false);
+        renderer.domElement.style.width = `${width}px`;
+        renderer.domElement.style.height = `${height}px`;
+        camera.aspect = width / Math.max(height, 1);
         camera.updateProjectionMatrix();
-        // Narrow (portrait) views see less width, so back the camera off until the grid fits.
-        const fit = camera.aspect < 1.2 ? Math.min(2, 1.15 / camera.aspect) : 1;
+        // Narrow (portrait) views see less width, so back the camera off until the grid fits;
+        // wide hero views frame a little tighter than the full page.
+        const fit = camera.aspect < 1.2 ? Math.min(2.2, 1.3 / camera.aspect) : hero ? 0.86 : 1;
         controls.maxDistance = 46 * fit;
         const dir = camera.position.clone().sub(controls.target).normalize();
         camera.position.copy(controls.target).add(dir.multiplyScalar(baseDistance * fit));
@@ -251,10 +292,11 @@ export function Skyline3D({ days }: { days: SkylineDay[] }) {
         for (const m of dayMeshes.get(index) ?? []) {
           const material = m.material as InstanceType<typeof THREE.MeshStandardMaterial>;
           if (on) {
-            m.material = material.clone();
-            (m.material as InstanceType<typeof THREE.MeshStandardMaterial>).emissive.set("#ffffff");
-            (m.material as InstanceType<typeof THREE.MeshStandardMaterial>).emissiveIntensity = 0.18;
+            const lit = material.clone();
+            lit.emissive.set("#ffffff");
+            lit.emissiveIntensity = 0.18;
             m.userData.base = material;
+            m.material = lit;
           } else if (m.userData.base) {
             (m.material as InstanceType<typeof THREE.Material>).dispose();
             m.material = m.userData.base;
@@ -302,27 +344,72 @@ export function Skyline3D({ days }: { days: SkylineDay[] }) {
       renderer.domElement.addEventListener("pointerdown", onDown);
       renderer.domElement.addEventListener("pointerup", onUp);
 
-      const t0 = performance.now();
+      // Callout arrows: project each called-out tower's top to the screen and draw a curve from its card.
+      const v = new THREE.Vector3();
+      const drawCallouts = () => {
+        calloutsRef.current.forEach((index, k) => {
+          const a = anchors.get(index);
+          const card = cardRefs.current[k];
+          const path = pathRefs.current[k];
+          const dot = dotRefs.current[k];
+          if (!a || !card || !path || !dot) return;
+          const shown = card.offsetParent !== null;
+          v.set(a.x, 0.08 + a.h * (a.group ? a.group.scale.y : 1) + 0.05, a.z).project(camera);
+          if (!shown || v.z > 1) {
+            path.style.opacity = "0";
+            dot.style.opacity = "0";
+            return;
+          }
+          const tx = ((v.x + 1) / 2) * width;
+          const ty = ((1 - v.y) / 2) * height;
+          const left = card.offsetLeft;
+          const top = card.offsetTop;
+          const cw = card.offsetWidth;
+          const ch = card.offsetHeight;
+          const ax = tx > left + cw / 2 ? left + cw : left;
+          const ay = Math.min(Math.max(ty, top + 14), top + ch - 14);
+          const mx = ax + (tx - ax) * 0.55;
+          path.setAttribute("d", `M ${ax} ${ay} Q ${mx} ${ay} ${tx} ${ty}`);
+          dot.setAttribute("cx", String(tx));
+          dot.setAttribute("cy", String(ty));
+          path.style.opacity = "1";
+          dot.style.opacity = "1";
+        });
+      };
+
+      // Run only while on screen.
+      let visible = true;
       let frame = 0;
+      const t0 = performance.now();
       const tick = (now: number) => {
+        if (!visible) {
+          frame = 0;
+          return;
+        }
         frame = requestAnimationFrame(tick);
         const t = now - t0;
         if (!reduced) {
           for (const g of groups) {
             const p = Math.min(1, Math.max(0, (t - 300 - g.delay) / 900));
-            const eased = 1 - Math.pow(1 - p, 3);
-            g.group.scale.y = Math.max(0.0001, eased);
+            g.group.scale.y = Math.max(0.0001, 1 - Math.pow(1 - p, 3));
           }
           const pulse = 0.5 + 0.5 * Math.sin(t / 520);
           (cap.material as InstanceType<typeof THREE.MeshStandardMaterial>).emissiveIntensity = 0.6 + 0.6 * pulse;
         }
         controls.update();
         renderer.render(scene, camera);
+        drawCallouts();
       };
+      const io = new IntersectionObserver(([entry]) => {
+        visible = entry.isIntersecting;
+        if (visible && !frame) frame = requestAnimationFrame(tick);
+      });
+      io.observe(el);
       frame = requestAnimationFrame(tick);
 
       cleanup = () => {
-        cancelAnimationFrame(frame);
+        if (frame) cancelAnimationFrame(frame);
+        io.disconnect();
         ro.disconnect();
         renderer.domElement.removeEventListener("pointermove", onMove);
         renderer.domElement.removeEventListener("pointerleave", onLeave);
@@ -344,11 +431,67 @@ export function Skyline3D({ days }: { days: SkylineDay[] }) {
       disposed = true;
       cleanup();
     };
-  }, [days, router]);
+  }, [days, router, variant]);
+
+  const size = variant === "hero" ? "h-[460px] sm:h-[560px]" : "h-[62vh] min-h-[420px] sm:h-[70vh]";
 
   return (
-    <div className="relative h-[62vh] min-h-[420px] w-full sm:h-[70vh]">
+    <div className={`relative w-full ${size}`}>
       <div ref={mount} className="absolute inset-0" aria-hidden="true" />
+
+      {/* Callout arrows, redrawn every frame from the projected tower tops. */}
+      <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full overflow-visible">
+        <defs>
+          <marker
+            id={`arrow-${markerId}`}
+            viewBox="0 0 10 10"
+            refX="8"
+            refY="5"
+            markerWidth="7"
+            markerHeight="7"
+            orient="auto-start-reverse"
+          >
+            <path d="M0 0 L10 5 L0 10 z" fill="#141414" />
+          </marker>
+        </defs>
+        {callouts.map((index, k) => (
+          <g key={index}>
+            <path
+              ref={(n) => {
+                pathRefs.current[k] = n;
+              }}
+              fill="none"
+              stroke="#141414"
+              strokeWidth="1.25"
+              strokeDasharray="4 4"
+              markerEnd={`url(#arrow-${markerId})`}
+              style={{ opacity: 0, transition: "opacity 200ms" }}
+            />
+            <circle
+              ref={(n) => {
+                dotRefs.current[k] = n;
+              }}
+              r="5"
+              fill="none"
+              stroke="#d8121f"
+              strokeWidth="1.5"
+              style={{ opacity: 0 }}
+            />
+          </g>
+        ))}
+      </svg>
+
+      {callouts.map((index, k) => (
+        <CalloutCard
+          key={index}
+          day={days[index]}
+          className={SLOTS[k]}
+          cardRef={(n) => {
+            cardRefs.current[k] = n;
+          }}
+        />
+      ))}
+
       {failed ? (
         <p className="absolute inset-0 flex items-center justify-center p-6 text-center font-serif text-ink-soft">
           This view needs WebGL, which this browser does not have turned on.
@@ -359,12 +502,59 @@ export function Skyline3D({ days }: { days: SkylineDay[] }) {
   );
 }
 
+/** A called-out day: its photo when it has one, the sports, the date and the first session. */
+function CalloutCard({
+  day,
+  className,
+  cardRef,
+}: {
+  day: SkylineDay;
+  className: string;
+  cardRef: (n: HTMLElement | null) => void;
+}) {
+  const sports = [...new Set(day.sessions.map((s) => s.sport))];
+  const first = day.sessions[0];
+  const body = (
+    <>
+      {day.photo ? (
+        <span className="relative block h-16 w-full overflow-hidden rounded-lg bg-desk sm:h-24">
+          <Image src={day.photo.url} alt={day.photo.alt} fill sizes="200px" className="object-cover" />
+        </span>
+      ) : null}
+      <span className={`flex flex-wrap items-center gap-1 ${day.photo ? "mt-2" : ""}`}>
+        {sports.map((s) => (
+          <SportPill key={s} sport={s} />
+        ))}
+      </span>
+      <span className="label mt-1.5 block !text-[0.62rem] !text-ink sm:!text-[0.66rem]">
+        Day {day.day} · {fmtDay(day.date)}
+      </span>
+      {first ? (
+        <span className="mt-0.5 line-clamp-2 block font-serif text-[0.82rem] leading-snug text-ink-soft sm:text-[0.88rem]">
+          {first.name}
+        </span>
+      ) : null}
+      <span className="label mt-1 block !text-[0.62rem]">{fmtHM(totalMinutes(day) * 60)}</span>
+    </>
+  );
+  const cls = `absolute z-10 w-[148px] rounded-xl bg-paper/95 p-2 text-left shadow-[0_0_0_1px_rgba(20,20,20,0.07),0_14px_30px_-14px_rgba(20,20,20,0.35)] backdrop-blur transition-transform hover:-translate-y-0.5 sm:w-[196px] sm:p-2.5 ${className}`;
+  return day.href ? (
+    <Link href={day.href} ref={cardRef} className={cls}>
+      {body}
+    </Link>
+  ) : (
+    <div ref={cardRef} className={cls}>
+      {body}
+    </div>
+  );
+}
+
 function Tooltip({ hover }: { hover: Hover }) {
   const d = hover.day;
   const total = totalMinutes(d);
   return (
     <div
-      className="pointer-events-none absolute z-10 w-max max-w-[260px] -translate-x-1/2 rounded-xl bg-paper/95 px-3.5 py-2.5 shadow-[0_0_0_1px_rgba(20,20,20,0.08),0_12px_28px_-12px_rgba(20,20,20,0.35)] backdrop-blur"
+      className="pointer-events-none absolute z-20 w-max max-w-[260px] rounded-xl bg-paper/95 px-3.5 py-2.5 shadow-[0_0_0_1px_rgba(20,20,20,0.08),0_12px_28px_-12px_rgba(20,20,20,0.35)] backdrop-blur"
       style={{ left: hover.x, top: Math.max(8, hover.y - 18), transform: "translate(-50%, -100%)" }}
     >
       <div className="label !text-ink">
