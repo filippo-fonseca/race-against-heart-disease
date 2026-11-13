@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="440" viewBox="0 0 1280 440" role="img" aria-label="Race Against Heart Disease: IRONMAN 70.3 Texas, April 4, 2027, Team IMF">
+  <defs>
+    <filter id="blur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="60"/>
+    </filter>
+    <radialGradient id="cool" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#46a0ff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#46a0ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="red" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ff3c78" stop-opacity="0.45"/>
+      <stop offset="0.6" stop-color="#d8121f" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#d8121f" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="warm" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ff8a50" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#ff8a50" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="13" cy="13" r="1.15" fill="#141414" fill-opacity="0.13"/>
+    </pattern>
+    <clipPath id="card">
+      <rect x="0" y="0" width="1280" height="440" rx="28"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#card)">
+    <rect width="1280" height="440" fill="#ffffff"/>
+    <g filter="url(#blur)">
+      <ellipse cx="300" cy="190" rx="300" ry="170" fill="url(#cool)"/>
+      <ellipse cx="660" cy="260" rx="300" ry="160" fill="url(#red)"/>
+      <ellipse cx="1010" cy="170" rx="260" ry="150" fill="url(#warm)"/>
+    </g>
+    <rect width="1280" height="440" fill="url(#dots)"/>
+    <rect x="0.5" y="0.5" width="1279" height="439" rx="27.5" fill="none" stroke="#141414" stroke-opacity="0.08"/>
+  </g>
+
+  <!-- heart mark -->
+  <g transform="translate(612 58) scale(0.875)">
+    <path fill="#d8121f" fill-rule="evenodd" d="M32 58C32 58 6 41.5 6 24.5C6 15 13.2 8 21.5 8C26.2 8 30 10.8 32 14.6C34 10.8 37.8 8 42.5 8C50.8 8 58 15 58 24.5C58 41.5 32 58 32 58Z M19 17H26.5L32 25.5L37.5 17H45L35.5 31V48H28.5V31Z"/>
+  </g>
+
+  <text x="640" y="200" text-anchor="middle" font-family="'EB Garamond', Garamond, Georgia, 'Times New Roman', serif" font-size="76" fill="#141414" letter-spacing="-1.5">Race Against <tspan fill="#d8121f" font-style="italic">Heart Disease</tspan></text>
+
+  <text x="640" y="258" text-anchor="middle" font-family="'EB Garamond', Garamond, Georgia, 'Times New Roman', serif" font-size="27" fill="#4a4a4a">An open letter, a live training log, and a fundraiser for young hearts.</text>
+
+  <g font-family="'Courier Prime', 'Courier New', Courier, monospace" font-size="17" letter-spacing="2.5" fill="#4a4a4a" text-anchor="middle">
+    <text x="640" y="330">IRONMAN 70.3 TEXAS · GALVESTON · APRIL 4, 2027</text>
+    <text x="640" y="362" fill="#141414">TEAM IMF · AGAINSTHEARTDISEASE.XYZ</text>
+  </g>
+</svg>
