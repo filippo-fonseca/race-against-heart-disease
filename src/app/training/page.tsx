@@ -100,6 +100,12 @@ function Header({ today }: { today: string | null }) {
             </span>
           ) : null}
         </div>
+        <Link
+          href="/training/3d"
+          className="label mt-1 underline decoration-rule underline-offset-4 hover:text-red"
+        >
+          See every day in 3D →
+        </Link>
       </header>
       <div className="rise mt-6 h-px w-full bg-red" style={step(1)} />
     </>

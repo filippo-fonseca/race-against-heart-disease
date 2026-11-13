@@ -4,6 +4,7 @@ import Link from "next/link";
 import { site, stats } from "@/lib/site";
 import { AboutLink } from "./AboutLink";
 import { Disclaimer } from "./Disclaimer";
+import { HeroSkyline } from "./HeroSkyline";
 import { CampaignHero } from "./FundraisingMeter";
 import { Mark } from "./marks";
 import { Postcards } from "./Postcards";
@@ -112,17 +113,24 @@ export function Letter() {
           <Mark className="h-5 w-5" />
           Donate through {site.charity.team}
         </a>
-        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-          <a href={`#${LETTER_ID}`} className="label underline decoration-rule underline-offset-4 hover:text-red">
-            Read the letter ↓
+        {/* Secondary actions: clearly buttons, quieter than Donate. */}
+        <div className="mt-1 flex flex-wrap items-center justify-center gap-2.5">
+          <a
+            href={`#${LETTER_ID}`}
+            className="pill !h-10 !gap-2 bg-ink !px-4 !text-[0.98rem] text-paper transition-[background-color,transform] hover:bg-[#2a2a2a] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+          >
+            Read the letter <span aria-hidden="true">↓</span>
           </a>
-          <span className="label" aria-hidden="true">·</span>
-          <Link href="/training" className="label underline decoration-rule underline-offset-4 hover:text-red">
-            Follow the training →
+          <Link
+            href="/training"
+            className="pill !h-10 !gap-2 bg-red/10 !px-4 !text-[0.98rem] text-red shadow-[inset_0_0_0_1px_rgba(216,18,31,0.28)] transition-[background-color,transform] hover:bg-red/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red"
+          >
+            Follow the training <span aria-hidden="true">→</span>
           </Link>
         </div>
       </div>
       <WhyVideo className="rise mt-10" />
+      <HeroSkyline className="rise mt-10" />
       <StravaEmbed className="rise mt-8" />
 
       <div className="rise mx-auto mt-14 h-px w-full bg-red" style={step(2)} />
