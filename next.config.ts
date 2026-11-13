@@ -12,6 +12,8 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "*.cloudfront.net" },
       // Photos uploaded through the MCP server (public `training-photos` bucket).
       { protocol: "https", hostname: "*.supabase.co", pathname: "/storage/v1/object/public/training-photos/**" },
+      // Thumbnail for the click-to-play YouTube embed (WhyVideo).
+      { protocol: "https", hostname: "i.ytimg.com", pathname: "/vi/**" },
     ],
   },
   turbopack: {
