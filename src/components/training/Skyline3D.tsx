@@ -18,20 +18,24 @@ const COLOR: Record<SportBucket, string> = {
   run: "#1f1f1f",
   strength: "#c08a3e",
 };
-/** Scene units per minute: a 150-minute day stands 3 units tall. */
+/** Scene units per minute: a 150-minute day stands 3 units tall, unless the biggest day would pass TALLEST. */
 const UNITS_PER_MIN = 3 / 150;
-const MAX_HEIGHT = 7;
+const TALLEST = 4.5;
 const TILE = 0.82;
 /**
- * Playback: one day stacks every STEP_MS, each rising over RISE_MS. At today
- * it holds for HOLD_MS, then rewinds (towers retract newest first, REWIND_STEP_MS
- * apart) and plays again. With looping off it stops on the finished skyline.
+ * Playback pacing. Each day stacks STEP apart and rises over RISE; both shrink
+ * as the block grows so a full build takes about BUILD_MS whatever its length
+ * (a few days play slowly, 154 days still finish in seconds). It holds on the
+ * finished skyline for HOLD_MS, then rewinds newest day first in about
+ * REWIND_MS and plays again. With looping off it stops on the finished skyline.
  */
-const STEP_MS = 420;
-const RISE_MS = 520;
+const BUILD_MS = 12000;
+const MAX_STEP_MS = 420;
+const MIN_STEP_MS = 60;
 const HOLD_MS = 3800;
-const REWIND_STEP_MS = 70;
-const REWIND_RISE_MS = 260;
+const REWIND_MS = 2400;
+/** Callout cards change at most this often, so a fast build never flickers them. */
+const CALLOUT_MS = 1400;
 
 /** Ease out with a small overshoot, so each day lands with a little bounce. */
 function easeOutBack(p: number): number {
@@ -188,6 +192,8 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
       /** Per day: tile centre and full tower height, so callouts can find the top. */
       const anchors = new Map<number, { x: number; z: number; h: number; group: InstanceType<typeof THREE.Group> | null }>();
 
+      const biggest = Math.max(1, ...days.map((d) => totalMinutes(d)));
+      const unitsPerMin = Math.min(UNITS_PER_MIN, TALLEST / biggest);
       days.forEach((d, i) => {
         const x = d.week - cx;
         const z = d.weekday - cz;
@@ -205,9 +211,8 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
         if (total > 0) {
           group = new THREE.Group();
           group.position.set(x, 0.08, z);
-          const scale = Math.min(1, MAX_HEIGHT / (total * UNITS_PER_MIN));
           for (const s of STACK) {
-            const h = d.minutes[s] * UNITS_PER_MIN * scale;
+            const h = d.minutes[s] * unitsPerMin;
             if (h <= 0) continue;
             const seg = new THREE.Mesh(segGeo, sportMat[s]);
             seg.scale.y = h;
@@ -220,7 +225,10 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
             meshes.push(seg);
             y += h;
           }
-          if (!reduced) group.scale.y = 0.0001;
+          if (!reduced) {
+            group.scale.y = 0.0001;
+            group.visible = false;
+          }
           scene.add(group);
           groups.push({ group, index: i });
         }
@@ -280,6 +288,24 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
       const raceLabel = label("RACE DAY", "#d8121f", 0.5);
       raceLabel.position.set(race.week - cx, 5.15, race.weekday - cz);
       scene.add(raceLabel);
+
+      // Today: a thin ink flagpole with a "TODAY" tag, floating above today's tile (skipped on race day).
+      const todayIndex = days.findIndex((d) => d.when === "today");
+      if (todayIndex >= 0 && todayIndex < days.length - 1) {
+        const td = days[todayIndex];
+        const tx = td.week - cx;
+        const tz = td.weekday - cz;
+        const poleTop = Math.max(2.4, totalMinutes(td) * unitsPerMin + 1.2);
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, poleTop, 12), mat("#141414"));
+        pole.position.set(tx, poleTop / 2, tz);
+        scene.add(pole);
+        const knob = new THREE.Mesh(new THREE.SphereGeometry(0.11, 20, 12), mat("#141414"));
+        knob.position.set(tx, poleTop, tz);
+        scene.add(knob);
+        const tag = label("TODAY", "#141414", 0.46);
+        tag.position.set(tx, poleTop + 0.45, tz);
+        scene.add(tag);
+      }
 
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.target.set(0, 0.4, 0.4);
@@ -438,24 +464,42 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
         dayEl.textContent = `Day ${days[head].day} · ${fmtDay(days[head].date)}`;
         hoursEl.textContent = `${fmtHours(cumulative[head] * 60)}h stacked`;
       };
-      // Callouts that follow the playback: the last few trained days stacked so far. Each trained day gets the
-      // slot (its order % slots), so a new day replaces the oldest card while the others stay put.
+      // Callouts that follow the playback: every CALLOUT_MS the newest stacked day (a day with a photo
+      // first, so the cards cycle through photos) takes the next slot in turn, replacing the oldest card.
       const trained = days.map((d, i) => (d.sessions.length > 0 && i <= lastIndex ? i : -1)).filter((i) => i >= 0);
-      let trailKey = "";
-      const followTrail = (head: number) => {
-        const slots = SLOTS.map(() => -1);
-        const upTo = trained.filter((i) => i <= head);
-        upTo.slice(-SLOTS.length).forEach((i) => {
-          slots[trained.indexOf(i) % SLOTS.length] = i;
-        });
-        const key = slots.join(",");
-        if (key === trailKey) return;
-        trailKey = key;
+      let lastCalloutAt = -Infinity;
+      let nextSlot = 0;
+      let lastHead = -1;
+      const setSlots = (slots: number[]) => {
         calloutsRef.current = slots;
         setCallouts(slots);
       };
+      const followTrail = (head: number, now: number) => {
+        if (head < lastHead) {
+          // A new pass from day one: clear the cards.
+          setSlots(SLOTS.map(() => -1));
+          nextSlot = 0;
+          lastCalloutAt = -Infinity;
+        }
+        lastHead = head;
+        if (now - lastCalloutAt < CALLOUT_MS) return;
+        const shown = new Set(calloutsRef.current);
+        const stacked = trained.filter((i) => i <= head && !shown.has(i));
+        if (stacked.length === 0) return;
+        const recent = stacked.slice(-8);
+        const pick = [...recent].reverse().find((i) => days[i].photo) ?? recent[recent.length - 1];
+        const slots = calloutsRef.current.length === SLOTS.length ? [...calloutsRef.current] : SLOTS.map(() => -1);
+        slots[nextSlot] = pick;
+        nextSlot = (nextSlot + 1) % SLOTS.length;
+        lastCalloutAt = now;
+        setSlots(slots);
+      };
 
       // Playback clock: advances only while playing (and on screen), so pause freezes in place.
+      const STEP_MS = Math.min(MAX_STEP_MS, Math.max(MIN_STEP_MS, BUILD_MS / Math.max(1, span)));
+      const RISE_MS = Math.min(520, Math.max(220, STEP_MS * 1.25));
+      const REWIND_STEP_MS = Math.min(70, REWIND_MS / Math.max(1, span));
+      const REWIND_RISE_MS = 260;
       const buildEnd = Math.max(0, span - 1) * STEP_MS + RISE_MS;
       const rewindEnd = Math.max(0, span - 1) * REWIND_STEP_MS + REWIND_RISE_MS;
       const cycle = buildEnd + HOLD_MS + rewindEnd;
@@ -484,7 +528,10 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
           elapsed = 0;
         }
         if (reduced || span === 0) {
-          for (const g of groups) g.group.scale.y = 1;
+          for (const g of groups) {
+            g.group.scale.y = 1;
+            g.group.visible = true;
+          }
           ring.visible = false;
           showHud(-1);
           setProgress(1);
@@ -508,10 +555,12 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
             for (const g of groups) {
               const p = Math.min(1, Math.max(0, (tc - g.index * STEP_MS) / RISE_MS));
               g.group.scale.y = p <= 0 ? 0.0001 : Math.max(0.0001, easeOutBack(p));
+              // Unstacked towers are hidden, not squashed flat (which smudges the tiles).
+              g.group.visible = p > 0;
             }
             head = Math.min(span - 1, Math.floor(tc / STEP_MS));
             setProgress(tc / buildEnd);
-            followTrail(head);
+            followTrail(head, now);
           } else {
             // Rewind: the newest day retracts first, back to day 1.
             const rt = tc - buildEnd - HOLD_MS;
@@ -519,6 +568,7 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
               const order = span - 1 - g.index;
               const p = Math.min(1, Math.max(0, (rt - order * REWIND_STEP_MS) / REWIND_RISE_MS));
               g.group.scale.y = Math.max(0.0001, 1 - p * p);
+              g.group.visible = p < 1;
             }
             head = Math.max(0, span - 1 - Math.floor(rt / REWIND_STEP_MS));
             setProgress(1 - rt / rewindEnd);
@@ -636,7 +686,8 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
       )}
 
       {/* Playback: play / pause / replay, loop on or off, the running count and a progress bar. */}
-      <div className="absolute bottom-3 left-3 z-10 w-[min(320px,calc(100%-1.5rem))] rounded-2xl bg-paper/92 p-2 pr-3 shadow-[0_0_0_1px_rgba(20,20,20,0.07),0_10px_24px_-12px_rgba(20,20,20,0.35)] backdrop-blur sm:bottom-4 sm:left-4">
+      {/* Centred at the bottom so it never covers the weekday labels on the left. */}
+      <div className="absolute bottom-3 left-1/2 z-10 w-[min(320px,calc(100%-1.5rem))] -translate-x-1/2 rounded-2xl bg-paper/92 p-2 pr-3 shadow-[0_0_0_1px_rgba(20,20,20,0.07),0_10px_24px_-12px_rgba(20,20,20,0.35)] backdrop-blur sm:bottom-4">
         <div className="flex items-center gap-2">
           <button
             type="button"
