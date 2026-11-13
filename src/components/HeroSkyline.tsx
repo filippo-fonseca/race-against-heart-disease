@@ -16,9 +16,11 @@ async function Scene() {
 export function HeroSkyline({ className = "" }: { className?: string }) {
   return (
     <section className={className} aria-label="Every training day, in 3D">
-      <div className="flex flex-col items-center gap-1 text-center">
-        <span className="label !text-ink">Every day of training, live from Strava</span>
-        <span className="label">Drag to look around · hover a day · click to open it</span>
+      <div className="flex flex-col items-center gap-2 text-center">
+        <h2 className="font-serif text-[1.8rem] font-medium leading-tight tracking-tight text-ink sm:text-[2.3rem]">
+          My method? Stacking days, <em className="text-red">literally</em> :)
+        </h2>
+        <span className="label">Every day of training, live from Strava · drag to look around · hover a day</span>
       </div>
       <div className="-mx-5 mt-2 sm:-mx-12 lg:-mx-16">
         <Suspense fallback={<div className="h-[460px] sm:h-[560px]" />}>
