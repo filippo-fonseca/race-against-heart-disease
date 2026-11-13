@@ -9,6 +9,7 @@ import { Mark } from "./marks";
 import { Postcards } from "./Postcards";
 import { SocialIcon, SocialRow, liveSocials } from "./Socials";
 import { StravaEmbed } from "./StravaEmbed";
+import { WhyVideo } from "./WhyVideo";
 import { sportFill } from "./training/charts/frame";
 
 /** Stagger index for the `.rise` animation. */
@@ -121,6 +122,7 @@ export function Letter() {
           </Link>
         </div>
       </div>
+      <WhyVideo className="rise mt-10" />
       <StravaEmbed className="rise mt-8" />
 
       <div className="rise mx-auto mt-14 h-px w-full bg-red" style={step(2)} />

@@ -60,6 +60,16 @@ export const site = {
   donateUrl:
     process.env.NEXT_PUBLIC_DONATE_URL ??
     "https://ironmanfoundation.donordrive.com/participants/filippofonseca",
+  /**
+   * "Why I'm doing this" video on the letter. Paste any YouTube link (watch,
+   * youtu.be or Shorts); leave it empty to hide the section. Set `vertical`
+   * for a 9:16 Short.
+   */
+  video: {
+    url: "" as string,
+    title: "Why I'm doing this",
+    vertical: false as boolean,
+  },
   charity: {
     name: "The IRONMAN Foundation",
     team: "Team IMF",
