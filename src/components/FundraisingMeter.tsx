@@ -86,20 +86,28 @@ export async function CampaignHero({ className = "" }: { className?: string }) {
 
       <div className="mx-auto mt-5 max-w-[560px]">
         <Bar raised={f.raisedUsd} goal={f.goalUsd} progress={f.progress} className="h-2" />
-        <div className="label mt-2.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-          <span className="!text-red">
-            {pct}%{over ? " · goal met" : " of goal"}
-          </span>
-          <span aria-hidden="true">·</span>
-          <span>
-            {f.donors !== null ? `${f.donors} ${f.donors === 1 ? "gift" : "gifts"} · ` : ""}
-            100% to {site.charity.name}
-          </span>
-          <span aria-hidden="true">·</span>
-          <span className={f.live ? "" : "!text-ink-faint"}>
-            {f.live ? "Live from Team IMF" : "Registration opens soon"}
-          </span>
-        </div>
+        {/* One plain sentence under the bar, the percentage in red. */}
+        <p className="mt-3 text-balance font-serif text-[1.08rem] leading-snug text-ink-soft sm:text-[1.15rem]">
+          I&apos;ve raised <strong className="font-semibold text-red">{pct}%</strong> of my goal
+          {over ? " (and then some!)" : " so far"}
+          {f.live ? (
+            <>
+              {" "}
+              (all data is live from my{" "}
+              <a
+                href={f.pageUrl ?? site.donateUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline decoration-rule underline-offset-4 hover:text-red"
+              >
+                IRONMAN Foundation page
+              </a>
+              ).
+            </>
+          ) : (
+            "."
+          )}
+        </p>
       </div>
     </section>
   );
