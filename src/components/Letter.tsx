@@ -145,17 +145,20 @@ export function Letter() {
             genetically predisposed than others, and certain factors are out
             of anyone&apos;s control. But the habits we build in childhood and
             early adulthood are the ones that not only persist, but eventually
-            lead to hearts that cannot keep up.
+            lead to hearts that cannot keep up (I&apos;ve seen this first-hand
+            with the cardiomyopathies I work with in the lab).
           </p>
 
           <p className="rise" style={step(3)}>
-            It often looks like this: plaque builds in the coronary arteries,
-            causing years of hypertension and discomfort, until eventually the
+            It tends to look like this: plaque builds in the coronary arteries,
+            which causes years of hypertension and discomfort. Eventually, the
             plaque dislodges, a blood clot forms, and the heart muscle is
-            starved of oxygen. This breaks my heart (no pun intended),
-            particularly because so often the root of it is children simply
-            never being exposed to the habits that take care of their hearts,
-            and their entire bodies, at all.
+            starved of oxygen (leading to a heart attack or other
+            complications). This breaks my heart (no pun intended),
+            particularly because so often the root of it is children (who
+            become the adults suffering from heart disease and predisposition
+            to heart attacks) simply never being exposed to the healthy habits
+            that take care of their hearts.
           </p>
 
           <p className="rise" style={step(4)}>
@@ -163,21 +166,35 @@ export function Letter() {
             <strong className="font-semibold">{site.race.dateLabel}</strong>,
             in {site.race.city}, {site.race.state}, I will swim 1.2 miles,
             bike 56, and run 13.1 with {site.charity.team}, the charity team
-            of {site.charity.name}. I am not racing to prove I am an athlete.
-            I am racing to show, as plainly as I can, what a heart is capable
-            of when it is cared for from the start, and to raise money for a
-            foundation that puts that chance in front of young people.
+            of {site.charity.name}. I am racing to show, as plainly as I can,
+            what a heart and body that are aligned are capable of when it is
+            cared for from the start (and mostly to raise money for a
+            foundation that puts that chance in front of young people!). You
+            can learn more about what they do{" "}
+            <a
+              href={site.charity.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-red/50 underline-offset-4 hover:text-red"
+            >
+              here
+            </a>
+            .
           </p>
 
           <p className="rise" style={step(5)}>
             If you are able to give, every dollar goes to {site.charity.name}.
             And whether or not you give, I hope you will take a child you love (or yourself)
             outside this week and move with them. It is among the best gifts
-            you can give a heart, and it costs nothing at all.
+            you can give a heart, and it costs nothing at all. :)
           </p>
 
           <p className="rise" style={step(6)}>
-            Thank you for reading, and for caring about this with me.
+            Thank you for reading (and for caring about this with me).
+          </p>
+
+          <p className="rise" style={step(6)}>
+            Keep moving and stay curious!
           </p>
 
           <div className="rise pt-4 text-center" style={step(7)}>
