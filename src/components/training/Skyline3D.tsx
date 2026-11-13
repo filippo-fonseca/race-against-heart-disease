@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import type { SportBucket } from "@/lib/training/types";
-import { fmtDay, fmtHM } from "./format";
+import { fmtDay, fmtHM, fmtHours } from "./format";
 import { SportPill, pillLabel } from "./SportPill";
 import type { SkylineDay } from "./skyline";
 import { WEEKDAY_LABELS, pickCallouts, totalMinutes } from "./skyline";
@@ -22,6 +22,18 @@ const COLOR: Record<SportBucket, string> = {
 const UNITS_PER_MIN = 3 / 150;
 const MAX_HEIGHT = 7;
 const TILE = 0.82;
+/** Playback: one day stacks every STEP_MS, each rising over RISE_MS; hold at today, then drop and loop. */
+const STEP_MS = 420;
+const RISE_MS = 520;
+const HOLD_MS = 2600;
+const DROP_MS = 650;
+
+/** Ease out with a small overshoot, so each day lands with a little bounce. */
+function easeOutBack(p: number): number {
+  const c1 = 1.25;
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2);
+}
 
 /** Where the callout cards sit over the scene. The third shows from sm up only. */
 const SLOTS = [
@@ -62,6 +74,16 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
   const cardRefs = useRef<(HTMLElement | null)[]>([]);
   const pathRefs = useRef<(SVGPathElement | null)[]>([]);
   const dotRefs = useRef<(SVGCircleElement | null)[]>([]);
+  // Playback: the loop reads the ref; the state only drives the button.
+  const [playing, setPlaying] = useState(true);
+  const playingRef = useRef(true);
+  const restartRef = useRef(false);
+  const hudDayRef = useRef<HTMLSpanElement>(null);
+  const hudHoursRef = useRef<HTMLSpanElement>(null);
+  // Where the playback ends (today, or the last past day) and the static totals shown when paused.
+  const lastIndex = days.reduce((last, d, i) => (d.when !== "future" ? i : last), -1);
+  const totalStacked = days.reduce((n, d, i) => (i <= lastIndex ? n + totalMinutes(d) : n), 0);
+  const restLabel = lastIndex >= 0 ? `Day ${days[lastIndex].day} · ${fmtDay(days[lastIndex].date)}` : "Day 1 is Nov 2";
 
   useEffect(() => {
     const el = mount.current;
@@ -149,7 +171,7 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
       const todayTile = mat("#141414");
 
       const pickables: InstanceType<typeof THREE.Mesh>[] = [];
-      const groups: { group: InstanceType<typeof THREE.Group>; delay: number }[] = [];
+      const groups: { group: InstanceType<typeof THREE.Group>; index: number }[] = [];
       const dayMeshes = new Map<number, InstanceType<typeof THREE.Mesh>[]>();
       /** Per day: tile centre and full tower height, so callouts can find the top. */
       const anchors = new Map<number, { x: number; z: number; h: number; group: InstanceType<typeof THREE.Group> | null }>();
@@ -188,7 +210,7 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
           }
           if (!reduced) group.scale.y = 0.0001;
           scene.add(group);
-          groups.push({ group, delay: i * 18 });
+          groups.push({ group, index: i });
         }
         anchors.set(i, { x, z, h: y, group });
         dayMeshes.set(i, meshes);
@@ -272,9 +294,9 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
         renderer.domElement.style.height = `${height}px`;
         camera.aspect = width / Math.max(height, 1);
         camera.updateProjectionMatrix();
-        // Narrow (portrait) views see less width, so back the camera off until the grid fits;
-        // wide hero views frame a little tighter than the full page.
-        const fit = camera.aspect < 1.2 ? Math.min(2.2, 1.3 / camera.aspect) : hero ? 0.86 : 1;
+        // Back the camera off as the view gets narrower so the whole grid fits;
+        // very wide hero views frame a little tighter than the full page.
+        const fit = Math.min(2.2, Math.max(hero ? 0.86 : 1, 1.5 / camera.aspect));
         controls.maxDistance = 46 * fit;
         const dir = camera.position.clone().sub(controls.target).normalize();
         camera.position.copy(controls.target).add(dir.multiplyScalar(baseDistance * fit));
@@ -377,6 +399,34 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
         });
       };
 
+      // Playback: a red ring marks the day being stacked; the HUD counts the hours stacked so far.
+      const span = lastIndex + 1;
+      const cumulative: number[] = [];
+      days.forEach((d, i) => cumulative.push((cumulative[i - 1] ?? 0) + totalMinutes(d)));
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(0.5, 0.6, 48),
+        mat("#d8121f", { emissive: "#ff3c50", emissiveIntensity: 0.8, transparent: true, opacity: 0.9, side: THREE.DoubleSide }),
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.visible = false;
+      scene.add(ring);
+      let shownHead = -2;
+      const showHud = (head: number) => {
+        if (head === shownHead) return;
+        shownHead = head;
+        const dayEl = hudDayRef.current;
+        const hoursEl = hudHoursRef.current;
+        if (!dayEl || !hoursEl) return;
+        if (head < 0) {
+          dayEl.textContent = restLabel;
+          hoursEl.textContent = `${fmtHours(totalStacked * 60)}h stacked`;
+          return;
+        }
+        dayEl.textContent = `Day ${days[head].day} · ${fmtDay(days[head].date)}`;
+        hoursEl.textContent = `${fmtHours(cumulative[head] * 60)}h stacked`;
+      };
+      let playStart = 0;
+
       // Run only while on screen.
       let visible = true;
       let frame = 0;
@@ -388,11 +438,39 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
         }
         frame = requestAnimationFrame(tick);
         const t = now - t0;
-        if (!reduced) {
-          for (const g of groups) {
-            const p = Math.min(1, Math.max(0, (t - 300 - g.delay) / 900));
-            g.group.scale.y = Math.max(0.0001, 1 - Math.pow(1 - p, 3));
+        if (restartRef.current) {
+          restartRef.current = false;
+          playStart = t;
+        }
+        if (!reduced && playingRef.current && span > 0) {
+          // Stack day by day from day 1 to today, hold, drop, repeat.
+          const buildEnd = (span - 1) * STEP_MS + RISE_MS;
+          const cycle = buildEnd + HOLD_MS + DROP_MS;
+          const tc = (t - playStart) % cycle;
+          let head = span - 1;
+          if (tc < buildEnd + HOLD_MS) {
+            for (const g of groups) {
+              const p = Math.min(1, Math.max(0, (tc - g.index * STEP_MS) / RISE_MS));
+              g.group.scale.y = p <= 0 ? 0.0001 : Math.max(0.0001, easeOutBack(p));
+            }
+            head = Math.min(span - 1, Math.floor(tc / STEP_MS));
+          } else {
+            const dp = Math.min(1, (tc - buildEnd - HOLD_MS) / DROP_MS);
+            for (const g of groups) g.group.scale.y = Math.max(0.0001, Math.pow(1 - dp, 2));
           }
+          const a = anchors.get(head);
+          if (a) {
+            ring.visible = true;
+            ring.position.set(a.x, 0.1, a.z);
+            (ring.material as InstanceType<typeof THREE.MeshStandardMaterial>).opacity = 0.55 + 0.4 * (0.5 + 0.5 * Math.sin(t / 160));
+          }
+          showHud(head);
+        } else {
+          for (const g of groups) g.group.scale.y = 1;
+          ring.visible = false;
+          showHud(-1);
+        }
+        if (!reduced) {
           const pulse = 0.5 + 0.5 * Math.sin(t / 520);
           (cap.material as InstanceType<typeof THREE.MeshStandardMaterial>).emissiveIntensity = 0.6 + 0.6 * pulse;
         }
@@ -431,7 +509,7 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
       disposed = true;
       cleanup();
     };
-  }, [days, router, variant]);
+  }, [days, router, variant, lastIndex, restLabel, totalStacked]);
 
   const size = variant === "hero" ? "h-[460px] sm:h-[560px]" : "h-[62vh] min-h-[420px] sm:h-[70vh]";
 
@@ -491,6 +569,37 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
           }}
         />
       ))}
+
+      {/* Playback controls: play / pause and the running count. */}
+      <div className="absolute bottom-3 left-3 z-10 flex items-center gap-2 rounded-full bg-paper/90 py-1 pl-1 pr-3.5 shadow-[0_0_0_1px_rgba(20,20,20,0.07),0_10px_24px_-12px_rgba(20,20,20,0.35)] backdrop-blur sm:bottom-4 sm:left-4">
+        <button
+          type="button"
+          onClick={() => {
+            playingRef.current = !playingRef.current;
+            if (playingRef.current) restartRef.current = true;
+            setPlaying(playingRef.current);
+          }}
+          aria-label={playing ? "Pause the playback and show every day" : "Play the days stacking up"}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink text-paper transition-transform active:scale-95 motion-reduce:hidden"
+        >
+          {playing ? (
+            <svg viewBox="0 0 12 12" className="h-3 w-3" fill="currentColor" aria-hidden="true">
+              <rect x="2" y="1.5" width="2.6" height="9" rx="0.6" />
+              <rect x="7.4" y="1.5" width="2.6" height="9" rx="0.6" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 12 12" className="ml-0.5 h-3 w-3" fill="currentColor" aria-hidden="true">
+              <path d="M3 1.8v8.4a.6.6 0 0 0 .9.5l6.6-4.2a.6.6 0 0 0 0-1L3.9 1.3a.6.6 0 0 0-.9.5Z" />
+            </svg>
+          )}
+        </button>
+        <span ref={hudDayRef} className="label whitespace-nowrap !text-[0.64rem] !text-ink sm:!text-[0.7rem]" aria-live="off">
+          {restLabel}
+        </span>
+        <span ref={hudHoursRef} className="label hidden whitespace-nowrap !text-[0.64rem] sm:inline sm:!text-[0.7rem]">
+          {fmtHours(totalStacked * 60)}h stacked
+        </span>
+      </div>
 
       {failed ? (
         <p className="absolute inset-0 flex items-center justify-center p-6 text-center font-serif text-ink-soft">
