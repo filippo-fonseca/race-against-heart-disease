@@ -1,16 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { connection } from "next/server";
 import { Suspense } from "react";
 import { Mark } from "@/components/marks";
 import { SiteHeader } from "@/components/SiteHeader";
-import { FEED_PAGE_WEEKS, buildFeed, dayLinks } from "@/components/training/model";
-import { buildSkyline } from "@/components/training/skyline";
 import { Skyline3D } from "@/components/training/Skyline3D";
+import { loadSkylineDays } from "@/components/training/skyline-data";
 import { SportPill } from "@/components/training/SportPill";
 import { site } from "@/lib/site";
-import { TRAINING_DAYS, TRAINING_START, inWindow, todayISO } from "@/lib/training/dates";
-import { loadTraining } from "@/lib/training/load";
+import { TRAINING_DAYS } from "@/lib/training/dates";
 import { SPORTS } from "@/lib/training/types";
 
 export const metadata: Metadata = {
@@ -18,17 +15,10 @@ export const metadata: Metadata = {
   description: `Every day from day one to ${site.race.name} as a 3D skyline: one tower per training day, stacked by sport.`,
 };
 
-/** Builds the skyline from the cached Strava data. Reads today, so it renders at request time. */
+/** Builds the skyline from the cached Strava data at request time. */
 async function Scene() {
-  await connection();
-  const today = todayISO();
-  const { activities: all } = await loadTraining();
-  const activities = all.filter((a) => inWindow(a.date) && a.date <= today);
-  const weeks = buildFeed(activities);
-  // Same links as the calendar on /training: each day opens its card, loading older weeks if needed.
-  const links = dayLinks(weeks, FEED_PAGE_WEEKS, (n) => (n > FEED_PAGE_WEEKS ? `/training?weeks=${n}` : "/training"));
-  const days = buildSkyline({ activities, start: TRAINING_START, totalDays: TRAINING_DAYS, today, links });
-  return <Skyline3D days={days} />;
+  const days = await loadSkylineDays();
+  return <Skyline3D days={days} variant="page" />;
 }
 
 export default function Training3DPage() {
