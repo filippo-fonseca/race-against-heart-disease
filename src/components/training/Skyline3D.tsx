@@ -22,11 +22,16 @@ const COLOR: Record<SportBucket, string> = {
 const UNITS_PER_MIN = 3 / 150;
 const MAX_HEIGHT = 7;
 const TILE = 0.82;
-/** Playback: one day stacks every STEP_MS, each rising over RISE_MS; hold at today, then drop and loop. */
+/**
+ * Playback: one day stacks every STEP_MS, each rising over RISE_MS. At today
+ * it holds for HOLD_MS, then rewinds (towers retract newest first, REWIND_STEP_MS
+ * apart) and plays again. With looping off it stops on the finished skyline.
+ */
 const STEP_MS = 420;
 const RISE_MS = 520;
-const HOLD_MS = 2600;
-const DROP_MS = 650;
+const HOLD_MS = 3800;
+const REWIND_STEP_MS = 70;
+const REWIND_RISE_MS = 260;
 
 /** Ease out with a small overshoot, so each day lands with a little bounce. */
 function easeOutBack(p: number): number {
@@ -74,12 +79,16 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
   const cardRefs = useRef<(HTMLElement | null)[]>([]);
   const pathRefs = useRef<(SVGPathElement | null)[]>([]);
   const dotRefs = useRef<(SVGCircleElement | null)[]>([]);
-  // Playback: the loop reads the ref; the state only drives the button.
+  // Playback: the render loop reads the refs; the state only drives the buttons.
   const [playing, setPlaying] = useState(true);
+  const [looping, setLooping] = useState(true);
+  const [ended, setEnded] = useState(false);
   const playingRef = useRef(true);
+  const loopingRef = useRef(true);
   const restartRef = useRef(false);
   const hudDayRef = useRef<HTMLSpanElement>(null);
   const hudHoursRef = useRef<HTMLSpanElement>(null);
+  const progressRef = useRef<HTMLSpanElement>(null);
   // Where the playback ends (today, or the last past day) and the static totals shown when paused.
   const lastIndex = days.reduce((last, d, i) => (d.when !== "future" ? i : last), -1);
   const totalStacked = days.reduce((n, d, i) => (i <= lastIndex ? n + totalMinutes(d) : n), 0);
@@ -106,10 +115,13 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
       }
       const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       const hero = variant === "hero";
-      // Callouts are random, so they are picked here in the browser, never during the server render.
-      const picked = pickCallouts(days, SLOTS.length);
-      calloutsRef.current = picked;
-      setCallouts(picked);
+      // Callouts: during playback they follow the days as they stack (below, in the loop). Without playback
+      // (reduced motion, or nothing logged yet) a random few are shown; random picks run here in the browser,
+      // never during the server render. Each slot holds a day index, or -1 when empty.
+      const staticPicks = pickCallouts(days, SLOTS.length);
+      const initial = SLOTS.map((_, k) => staticPicks[k] ?? -1);
+      calloutsRef.current = initial;
+      setCallouts(initial);
 
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer.shadowMap.enabled = true;
@@ -370,6 +382,7 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
       const v = new THREE.Vector3();
       const drawCallouts = () => {
         calloutsRef.current.forEach((index, k) => {
+          if (index < 0) return;
           const a = anchors.get(index);
           const card = cardRefs.current[k];
           const path = pathRefs.current[k];
@@ -425,7 +438,32 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
         dayEl.textContent = `Day ${days[head].day} · ${fmtDay(days[head].date)}`;
         hoursEl.textContent = `${fmtHours(cumulative[head] * 60)}h stacked`;
       };
-      let playStart = 0;
+      // Callouts that follow the playback: the last few trained days stacked so far. Each trained day gets the
+      // slot (its order % slots), so a new day replaces the oldest card while the others stay put.
+      const trained = days.map((d, i) => (d.sessions.length > 0 && i <= lastIndex ? i : -1)).filter((i) => i >= 0);
+      let trailKey = "";
+      const followTrail = (head: number) => {
+        const slots = SLOTS.map(() => -1);
+        const upTo = trained.filter((i) => i <= head);
+        upTo.slice(-SLOTS.length).forEach((i) => {
+          slots[trained.indexOf(i) % SLOTS.length] = i;
+        });
+        const key = slots.join(",");
+        if (key === trailKey) return;
+        trailKey = key;
+        calloutsRef.current = slots;
+        setCallouts(slots);
+      };
+
+      // Playback clock: advances only while playing (and on screen), so pause freezes in place.
+      const buildEnd = Math.max(0, span - 1) * STEP_MS + RISE_MS;
+      const rewindEnd = Math.max(0, span - 1) * REWIND_STEP_MS + REWIND_RISE_MS;
+      const cycle = buildEnd + HOLD_MS + rewindEnd;
+      let elapsed = 0;
+      let lastNow = -1;
+      const setProgress = (f: number) => {
+        if (progressRef.current) progressRef.current.style.transform = `scaleX(${Math.min(1, Math.max(0, f))})`;
+      };
 
       // Run only while on screen.
       let visible = true;
@@ -434,29 +472,56 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
       const tick = (now: number) => {
         if (!visible) {
           frame = 0;
+          lastNow = -1;
           return;
         }
         frame = requestAnimationFrame(tick);
         const t = now - t0;
+        const dt = lastNow < 0 ? 0 : Math.min(100, now - lastNow);
+        lastNow = now;
         if (restartRef.current) {
           restartRef.current = false;
-          playStart = t;
+          elapsed = 0;
         }
-        if (!reduced && playingRef.current && span > 0) {
-          // Stack day by day from day 1 to today, hold, drop, repeat.
-          const buildEnd = (span - 1) * STEP_MS + RISE_MS;
-          const cycle = buildEnd + HOLD_MS + DROP_MS;
-          const tc = (t - playStart) % cycle;
-          let head = span - 1;
+        if (reduced || span === 0) {
+          for (const g of groups) g.group.scale.y = 1;
+          ring.visible = false;
+          showHud(-1);
+          setProgress(1);
+        } else {
+          if (playingRef.current) {
+            elapsed += dt;
+            if (loopingRef.current) {
+              elapsed %= cycle;
+            } else if (elapsed >= buildEnd) {
+              // Play once: stop on the finished skyline.
+              elapsed = buildEnd;
+              playingRef.current = false;
+              setPlaying(false);
+              setEnded(true);
+            }
+          }
+          const tc = elapsed;
+          let head: number;
           if (tc < buildEnd + HOLD_MS) {
+            // Stack day by day from day 1 to today, then hold.
             for (const g of groups) {
               const p = Math.min(1, Math.max(0, (tc - g.index * STEP_MS) / RISE_MS));
               g.group.scale.y = p <= 0 ? 0.0001 : Math.max(0.0001, easeOutBack(p));
             }
             head = Math.min(span - 1, Math.floor(tc / STEP_MS));
+            setProgress(tc / buildEnd);
+            followTrail(head);
           } else {
-            const dp = Math.min(1, (tc - buildEnd - HOLD_MS) / DROP_MS);
-            for (const g of groups) g.group.scale.y = Math.max(0.0001, Math.pow(1 - dp, 2));
+            // Rewind: the newest day retracts first, back to day 1.
+            const rt = tc - buildEnd - HOLD_MS;
+            for (const g of groups) {
+              const order = span - 1 - g.index;
+              const p = Math.min(1, Math.max(0, (rt - order * REWIND_STEP_MS) / REWIND_RISE_MS));
+              g.group.scale.y = Math.max(0.0001, 1 - p * p);
+            }
+            head = Math.max(0, span - 1 - Math.floor(rt / REWIND_STEP_MS));
+            setProgress(1 - rt / rewindEnd);
           }
           const a = anchors.get(head);
           if (a) {
@@ -465,10 +530,6 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
             (ring.material as InstanceType<typeof THREE.MeshStandardMaterial>).opacity = 0.55 + 0.4 * (0.5 + 0.5 * Math.sin(t / 160));
           }
           showHud(head);
-        } else {
-          for (const g of groups) g.group.scale.y = 1;
-          ring.visible = false;
-          showHud(-1);
         }
         if (!reduced) {
           const pulse = 0.5 + 0.5 * Math.sin(t / 520);
@@ -532,8 +593,9 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
             <path d="M0 0 L10 5 L0 10 z" fill="#141414" />
           </marker>
         </defs>
-        {callouts.map((index, k) => (
-          <g key={index}>
+        {callouts.map((index, k) =>
+          index < 0 ? null : (
+          <g key={`${k}-${index}`}>
             <path
               ref={(n) => {
                 pathRefs.current[k] = n;
@@ -556,48 +618,87 @@ export function Skyline3D({ days, variant = "page" }: { days: SkylineDay[]; vari
               style={{ opacity: 0 }}
             />
           </g>
-        ))}
+          ),
+        )}
       </svg>
 
-      {callouts.map((index, k) => (
+      {callouts.map((index, k) =>
+        index < 0 ? null : (
         <CalloutCard
-          key={index}
+          key={`${k}-${index}`}
           day={days[index]}
-          className={SLOTS[k]}
+          className={`rise ${SLOTS[k]}`}
           cardRef={(n) => {
             cardRefs.current[k] = n;
           }}
         />
-      ))}
+        ),
+      )}
 
-      {/* Playback controls: play / pause and the running count. */}
-      <div className="absolute bottom-3 left-3 z-10 flex items-center gap-2 rounded-full bg-paper/90 py-1 pl-1 pr-3.5 shadow-[0_0_0_1px_rgba(20,20,20,0.07),0_10px_24px_-12px_rgba(20,20,20,0.35)] backdrop-blur sm:bottom-4 sm:left-4">
-        <button
-          type="button"
-          onClick={() => {
-            playingRef.current = !playingRef.current;
-            if (playingRef.current) restartRef.current = true;
-            setPlaying(playingRef.current);
-          }}
-          aria-label={playing ? "Pause the playback and show every day" : "Play the days stacking up"}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink text-paper transition-transform active:scale-95 motion-reduce:hidden"
-        >
-          {playing ? (
-            <svg viewBox="0 0 12 12" className="h-3 w-3" fill="currentColor" aria-hidden="true">
-              <rect x="2" y="1.5" width="2.6" height="9" rx="0.6" />
-              <rect x="7.4" y="1.5" width="2.6" height="9" rx="0.6" />
+      {/* Playback: play / pause / replay, loop on or off, the running count and a progress bar. */}
+      <div className="absolute bottom-3 left-3 z-10 w-[min(320px,calc(100%-1.5rem))] rounded-2xl bg-paper/92 p-2 pr-3 shadow-[0_0_0_1px_rgba(20,20,20,0.07),0_10px_24px_-12px_rgba(20,20,20,0.35)] backdrop-blur sm:bottom-4 sm:left-4">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (ended) {
+                restartRef.current = true;
+                setEnded(false);
+              }
+              playingRef.current = !playingRef.current || ended;
+              setPlaying(playingRef.current);
+            }}
+            aria-label={ended ? "Replay from day one" : playing ? "Pause" : "Play"}
+            title={ended ? "Replay" : playing ? "Pause" : "Play"}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink text-paper transition-transform active:scale-95 motion-reduce:hidden"
+          >
+            {ended ? (
+              <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M3 8a5 5 0 1 0 1.6-3.7" />
+                <path d="M3 2.5v3h3" />
+              </svg>
+            ) : playing ? (
+              <svg viewBox="0 0 12 12" className="h-3 w-3" fill="currentColor" aria-hidden="true">
+                <rect x="2" y="1.5" width="2.6" height="9" rx="0.6" />
+                <rect x="7.4" y="1.5" width="2.6" height="9" rx="0.6" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 12 12" className="ml-0.5 h-3 w-3" fill="currentColor" aria-hidden="true">
+                <path d="M3 1.8v8.4a.6.6 0 0 0 .9.5l6.6-4.2a.6.6 0 0 0 0-1L3.9 1.3a.6.6 0 0 0-.9.5Z" />
+              </svg>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              loopingRef.current = !loopingRef.current;
+              setLooping(loopingRef.current);
+            }}
+            aria-pressed={looping}
+            aria-label={looping ? "Looping: on. Turn off to stop at the end" : "Looping: off. Turn on to repeat"}
+            title={looping ? "Loop on" : "Loop off"}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors motion-reduce:hidden ${
+              looping ? "bg-red text-paper" : "text-ink-faint shadow-[0_0_0_1px_var(--rule)] hover:text-ink"
+            }`}
+          >
+            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M2.5 7V6a2.5 2.5 0 0 1 2.5-2.5h7.5" />
+              <path d="M10.5 1.5l2 2-2 2" />
+              <path d="M13.5 9v1a2.5 2.5 0 0 1-2.5 2.5H3.5" />
+              <path d="M5.5 14.5l-2-2 2-2" />
             </svg>
-          ) : (
-            <svg viewBox="0 0 12 12" className="ml-0.5 h-3 w-3" fill="currentColor" aria-hidden="true">
-              <path d="M3 1.8v8.4a.6.6 0 0 0 .9.5l6.6-4.2a.6.6 0 0 0 0-1L3.9 1.3a.6.6 0 0 0-.9.5Z" />
-            </svg>
-          )}
-        </button>
-        <span ref={hudDayRef} className="label whitespace-nowrap !text-[0.64rem] !text-ink sm:!text-[0.7rem]" aria-live="off">
-          {restLabel}
-        </span>
-        <span ref={hudHoursRef} className="label hidden whitespace-nowrap !text-[0.64rem] sm:inline sm:!text-[0.7rem]">
-          {fmtHours(totalStacked * 60)}h stacked
+          </button>
+          <span className="min-w-0 leading-tight">
+            <span ref={hudDayRef} className="label block truncate !text-[0.66rem] !text-ink sm:!text-[0.7rem]">
+              {restLabel}
+            </span>
+            <span ref={hudHoursRef} className="label block truncate !text-[0.62rem] sm:!text-[0.66rem]">
+              {fmtHours(totalStacked * 60)}h stacked
+            </span>
+          </span>
+        </div>
+        <span className="mt-2 block h-1 overflow-hidden rounded-full bg-[rgba(20,20,20,0.08)]" aria-hidden="true">
+          <span ref={progressRef} className="block h-full origin-left rounded-full bg-red" style={{ transform: "scaleX(1)" }} />
         </span>
       </div>
 
