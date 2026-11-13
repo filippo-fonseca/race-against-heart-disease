@@ -16,12 +16,16 @@ async function Scene() {
 export function HeroSkyline({ className = "" }: { className?: string }) {
   return (
     <section className={className} aria-label="Every training day, in 3D">
-      <div className="flex flex-col items-center gap-2 text-center">
+      <div className="flex flex-col items-center text-center">
         <h2 className="font-serif text-[1.8rem] font-medium leading-tight tracking-tight text-ink sm:text-[2.3rem]">
           My method? Stacking days, <em className="text-red">literally</em> :)
         </h2>
+        <p className="mt-3 max-w-[72ch] font-serif text-[1.02rem] leading-relaxed text-ink-soft sm:text-[1.1rem]">
+          I had tons of fun building this 3D map of my training! It&apos;s synced to my Strava and updates in real time (so
+          you know your funding is going to good use!).
+        </p>
       </div>
-      <div className="-mx-5 mt-2 sm:-mx-12 lg:-mx-16">
+      <div className="-mx-5 mt-6 sm:-mx-12 lg:-mx-16">
         <Suspense fallback={<div className="h-[460px] sm:h-[560px]" />}>
           <Scene />
         </Suspense>
