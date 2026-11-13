@@ -130,7 +130,6 @@ export function Letter() {
         </div>
       </div>
       <WhyVideo className="rise mt-10" />
-      <HeroSkyline className="rise mt-10" />
       <StravaEmbed className="rise mt-8" />
 
       <div className="rise mx-auto mt-14 h-px w-full bg-red" style={step(2)} />
@@ -232,6 +231,9 @@ export function Letter() {
         </div>
 
       </div>
+
+      {/* the training, stacked: the 3D skyline right after the letter */}
+      <HeroSkyline className="rise mt-20" />
 
       {/* who is writing: the about text beside photo postcards */}
       <Postcards className="rise mt-20" />
