@@ -4,6 +4,7 @@ import Link from "next/link";
 import { site, stats } from "@/lib/site";
 import { AboutLink } from "./AboutLink";
 import { Disclaimer } from "./Disclaimer";
+import { HeroSkyline } from "./HeroSkyline";
 import { CampaignHero } from "./FundraisingMeter";
 import { Mark } from "./marks";
 import { Postcards } from "./Postcards";
@@ -121,6 +122,7 @@ export function Letter() {
           </Link>
         </div>
       </div>
+      <HeroSkyline className="rise mt-10" />
       <StravaEmbed className="rise mt-8" />
 
       <div className="rise mx-auto mt-14 h-px w-full bg-red" style={step(2)} />
