@@ -179,6 +179,26 @@ If any call fails, show me the exact error and what you think it means (401 = wr
 
 **Photos in the Grok app.** If Grok can't pass a photo you upload in chat as a public URL, send it as base64 (`image_base64`, about 3 MB at most) or share a link to the image, and let `add_photo` fetch it.
 
+## Connecting Claude (Claude Duet, claude.ai, desktop, Claude Code)
+
+The same server works from any Claude client that can add a remote MCP server. The values live in `.env.grok-connector.local` (gitignored): `SERVER_URL`, `TOKEN`, and `URL_WITH_KEY` (the URL with the token as `?key=`).
+
+**Custom connector form** (claude.ai or the desktop app: Settings, Connectors, Add custom connector; or any Claude client with a similar form):
+
+1. **Name** it `training`.
+2. **Remote MCP server URL:** paste `URL_WITH_KEY`, that is `https://www.againstheartdisease.xyz/api/mcp?key=<MCP_TOKEN>`. These forms usually have no field for a token, which is why the server accepts the key in the URL.
+3. Leave the OAuth fields empty. The server does not use OAuth; a form that only shows OAuth fields means the URL went in without `?key=`.
+
+**Claude Code** (terminal, or anything built on it): send the token as a header instead of putting it in the URL.
+
+```bash
+claude mcp add --transport http training https://www.againstheartdisease.xyz/api/mcp --header "Authorization: Bearer <MCP_TOKEN>"
+```
+
+**Check it.** Ask Claude to run the setup message above (it works the same for Claude as for Grok), or simply: "Call get_overview and tell me what day of training it is." It should see the 10 tools and answer with today's day number out of 154. A 401 means the key or token is wrong; a 503 means `MCP_TOKEN` isn't set on the server.
+
+Either way the key is a password: anyone with the key URL or the token can edit the training log, so keep it out of shared chats, screenshots and repos.
+
 ## Connecting a Grok bot (xAI API)
 
 xAI documents remote MCP tools at <https://docs.x.ai/docs/guides/tools/remote-mcp-tools>. At the time of writing that page describes the following (check it before relying on a field):
