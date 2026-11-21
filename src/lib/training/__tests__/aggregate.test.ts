@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { calendarCells, cumulativeTime, activeAndRestDays, hrBuckets, summary, weeklyTotals } from "../aggregate";
+import { avgPerCompletedWeekSec, calendarCells, cumulativeTime, activeAndRestDays, hrBuckets, summary, weeklyTotals } from "../aggregate";
 import { activity } from "./fixtures";
 
 test("weekly totals bucket by Monday across a month boundary", () => {
@@ -125,4 +125,29 @@ test("cumulative time runs forward by day per sport, indoor rides included", () 
   assert.deepEqual(c.bike, [0, 0, 3600, 3600]);
   assert.deepEqual(c.strength, [0, 0, 600, 600]);
   assert.deepEqual(c.swim, [0, 0, 0, 0]);
+});
+
+test("avg per week leaves out the week in progress", () => {
+  const acts = [
+    activity({ date: "2026-11-02", sport: "run", movingTimeSec: 3600 * 4 }),
+    activity({ date: "2026-11-08", sport: "bike", movingTimeSec: 3600 * 4 }), // Sunday, week 1
+    activity({ date: "2026-11-09", sport: "swim", movingTimeSec: 3600 * 6 }), // week 2
+    activity({ date: "2026-11-18", sport: "run", movingTimeSec: 3600 * 3 }), // week 3, in progress
+  ];
+  // Week 1 = 8h, week 2 = 6h; week 3 is ignored until it is over.
+  assert.equal(avgPerCompletedWeekSec(acts, "2026-11-21"), 3600 * 7);
+  // On Monday of week 3 the average is unchanged.
+  assert.equal(avgPerCompletedWeekSec(acts, "2026-11-16"), 3600 * 7);
+  // Once week 3 ends it joins the average.
+  assert.equal(avgPerCompletedWeekSec(acts, "2026-11-23"), (3600 * 17) / 3);
+});
+
+test("avg per week shows this week's hours during week 1 and 0 before day 1", () => {
+  const acts = [
+    activity({ date: "2026-11-02", sport: "run", movingTimeSec: 3600 }),
+    activity({ date: "2026-11-04", sport: "swim", movingTimeSec: 1800 }),
+  ];
+  assert.equal(avgPerCompletedWeekSec(acts, "2026-11-01"), 0);
+  assert.equal(avgPerCompletedWeekSec(acts, "2026-11-04"), 5400);
+  assert.equal(avgPerCompletedWeekSec(acts, "2026-11-08"), 5400);
 });

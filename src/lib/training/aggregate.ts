@@ -6,7 +6,7 @@
  */
 
 import { SPORTS, bucketOf, type Activity, type SportBucket, type TrainingSummary, type WeeklyTotals } from "./types";
-import { addDays, eachDay, type ISODate, todayISO, weekStartOf } from "./dates";
+import { TRAINING_START, addDays, completedWeeks, eachDay, type ISODate, todayISO, weekStartFor, weekStartOf } from "./dates";
 
 export type SportTotals = { timeSec: number; distanceM: number; count: number };
 
@@ -71,6 +71,22 @@ export function weeklyTotals(activities: Activity[], opts: WeeklyTotalsOptions =
     row.totalTimeSec += a.movingTimeSec;
   }
   return [...rows.values()];
+}
+
+/**
+ * Average moving time per week over the window weeks already finished by
+ * `today` (see completedWeeks), so the week in progress never drags it down.
+ * During week 1, before any week is done, it is the hours so far this week.
+ * 0 before day 1.
+ */
+export function avgPerCompletedWeekSec(activities: Activity[], today: ISODate = todayISO()): number {
+  if (today < TRAINING_START) return 0;
+  const done = completedWeeks(today);
+  const end = done > 0 ? weekStartFor(done + 1) : addDays(TRAINING_START, 7);
+  const sec = activities
+    .filter((a) => a.date >= TRAINING_START && a.date < end && a.date <= today)
+    .reduce((n, a) => n + a.movingTimeSec, 0);
+  return done > 0 ? sec / done : sec;
 }
 
 /* ------------------------------------------------------------------ */
