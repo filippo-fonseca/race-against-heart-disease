@@ -3,10 +3,10 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { site } from "@/lib/site";
-import { totalsBySport } from "@/lib/training/aggregate";
-import { TRAINING_DAYS, TRAINING_START, dayNumber, todayISO, weeksElapsed } from "@/lib/training/dates";
+import { avgPerCompletedWeekSec, totalsBySport } from "@/lib/training/aggregate";
+import { TRAINING_DAYS, TRAINING_START, dayNumber, todayISO } from "@/lib/training/dates";
 import { loadTraining, resolveAthlete } from "@/lib/training/load";
-import { SPORTS } from "@/lib/training/types";
+import { SPORTS, type Activity } from "@/lib/training/types";
 import { fmtAgo, fmtHM, fmtHours, fmtKm, fmtSportTotal } from "./training/format";
 import { SportPill } from "./training/SportPill";
 import { SocialIcon } from "./Socials";
@@ -86,7 +86,7 @@ export async function StravaEmbed({ className = "" }: { className?: string }) {
             </>
           }
         >
-          <TodayStats totalSec={totalSec} />
+          <TodayStats activities={mine} />
         </Suspense>
       </dl>
 
@@ -148,17 +148,16 @@ export async function StravaEmbed({ className = "" }: { className?: string }) {
 }
 
 /**
- * Average hours per week so far, and "Day 8 of 154". Both read today's date,
- * so they render at request time.
+ * Average hours per completed week (the week in progress is left out), and
+ * "Day 8 of 154". Both read today's date, so they render at request time.
  */
-async function TodayStats({ totalSec }: { totalSec: number }) {
+async function TodayStats({ activities }: { activities: Activity[] }) {
   await connection();
   const today = todayISO();
   const n = today < TRAINING_START ? 0 : Math.min(dayNumber(today), TRAINING_DAYS);
-  const weeks = weeksElapsed(today);
   return (
     <>
-      <Stat label="Avg / week" value={`${fmtHours(weeks > 0 ? totalSec / weeks : 0)}h`} />
+      <Stat label="Avg / week" value={`${fmtHours(avgPerCompletedWeekSec(activities, today))}h`} />
       <Stat label={`of ${TRAINING_DAYS}`} value={`Day ${n}`} />
     </>
   );

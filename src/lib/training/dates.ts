@@ -86,14 +86,14 @@ export function dayNumber(date: ISODate): number {
 }
 
 /**
- * Weeks of training elapsed by `today`, for per-week averages. Counts days
- * in the window so far (today included) over 7, floored at one week so the
- * first few days do not inflate the average. 0 before day 1, capped at race day.
+ * Monday-to-Sunday window weeks fully over by `today`, for per-week averages.
+ * The week `today` falls in is still in progress and does not count, so a
+ * Monday reads the same as the Sunday before it. 0 during week 1 and before
+ * day 1; all 22 once race day has passed.
  */
-export function weeksElapsed(today: ISODate): number {
-  const days = Math.min(dayNumber(today), TRAINING_DAYS);
-  if (days <= 0) return 0;
-  return Math.max(days, 7) / 7;
+export function completedWeeks(today: ISODate): number {
+  if (today < TRAINING_START) return 0;
+  return Math.min(weekNumber(today) - 1, TRAINING_WEEKS);
 }
 
 /** Week number in the window: week 1 starts on TRAINING_START. Below 1 before, above 22 after. */
