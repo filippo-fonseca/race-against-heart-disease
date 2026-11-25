@@ -73,6 +73,13 @@ const sport = z
   .describe("Sport bucket: swim, bike (indoor rides included), run, or strength (shown as LIFT on the site; covers HIIT, weights and anything that is not swim, bike or run).");
 
 export function registerTools(server: McpServer): void {
+  // The tool list never changes at runtime, and a stateless serverless
+  // instance could not push a change anyway. Advertising listChanged made
+  // clients hold a subscriptions/listen stream open on every connection, so
+  // each one ran this function to its 60 s limit and reconnected, around the
+  // clock. With it off, a listen request is acknowledged and closed at once.
+  server.server.registerCapabilities({ tools: { listChanged: false } });
+
   server.registerTool(
     "get_overview",
     {
